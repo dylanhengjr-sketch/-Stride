@@ -37,9 +37,9 @@ struct ActivityDetailView: View {
                         HStack {
                             Text("Split \(split.splitIndex)")
                             Spacer()
-                            Text(formatDuration(split.durationSeconds))
+                            Text(formattedDuration(split.durationSeconds))
                                 .monospacedDigit()
-                            Text(formatPace(split.averagePaceSecPerKm))
+                            Text(formattedPace(split.averagePaceSecPerKm))
                                 .foregroundStyle(.secondary)
                         }
                     }
