@@ -10,12 +10,14 @@ final class LocalDatabaseStore: ObservableObject {
 
     private let modelContext: ModelContext
     private let saveHandler: (ModelContext) throws -> Void
+    private let deleteHandler: (ModelContext, WorkoutActivity) throws -> Void
     private var pendingPoints: [TrackPoint] = []
     private var lastFlushDate: Date?
 
     init(
         modelContext: ModelContext,
-        saveHandler: ((ModelContext) throws -> Void)? = nil
+        saveHandler: ((ModelContext) throws -> Void)? = nil,
+        deleteHandler: ((ModelContext, WorkoutActivity) throws -> Void)? = nil
     ) {
         self.modelContext = modelContext
         if let saveHandler {
@@ -25,6 +27,11 @@ final class LocalDatabaseStore: ObservableObject {
                 if context.hasChanges {
                     try context.save()
                 }
+            }
+        }
+        self.deleteHandler = deleteHandler ?? { context, activity in
+            try context.transaction {
+                context.delete(activity)
             }
         }
     }
@@ -97,22 +104,19 @@ final class LocalDatabaseStore: ObservableObject {
 
     @discardableResult
     func deleteActivity(_ activity: WorkoutActivity, now: Date = Date()) -> Bool {
-        // Save queued points first so the deletion is isolated from workout updates.
+        // Persist queued route points before beginning the deletion transaction.
         guard flushPendingTrackPoints(now: now) else {
             return false
         }
 
-        // Delete in the owning context. A second context can invalidate the
-        // live workout's SwiftData objects even when its save subsequently fails.
-        modelContext.delete(activity)
-        guard commitContext(now: now) else {
-            // The save handler failed before the deletion was persisted.
-            // Reinsert the same model rather than rolling back the entire
-            // context, which can invalidate SwiftData relationship snapshots.
-            modelContext.insert(activity)
+        do {
+            try deleteHandler(modelContext, activity)
+            lastSaveError = nil
+            return true
+        } catch {
+            lastSaveError = error.localizedDescription
             return false
         }
-        return true
     }
 
     func enqueueTrackPoint(
