@@ -1234,6 +1234,68 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertNil(imported?.averagePaceSecPerKm)
     }
 
+    func testGPXImportWithoutTimestampsUsesCurrentDatesAndNoMeasuredDuration() throws {
+        let gpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="Stride" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><name>Untimed Route</name><trkseg>
+            <trkpt lat="1.35210" lon="103.819800"><ele>10</ele></trkpt>
+            <trkpt lat="1.35210" lon="103.819900"><ele>11</ele></trkpt>
+            <trkpt lat="1.35210" lon="103.820000"><ele>12</ele></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """
+
+        let beforeImport = Date()
+        try store.importGPX(Data(gpx.utf8))
+        let afterImport = Date()
+
+        let imported = try XCTUnwrap(
+            store.fetchCompletedActivities().first { $0.title == "Imported GPX - Untimed Route" }
+        )
+        XCTAssertGreaterThanOrEqual(imported.startDate, beforeImport.addingTimeInterval(-1))
+        XCTAssertLessThanOrEqual(imported.startDate, afterImport.addingTimeInterval(1))
+        XCTAssertEqual(imported.elapsedTimeSeconds, 0)
+
+        let timestamps = imported.trackPoints
+            .sorted { $0.timestamp < $1.timestamp }
+            .map(\.timestamp)
+        XCTAssertEqual(timestamps.count, 3)
+        XCTAssertGreaterThan(timestamps[1].timeIntervalSince(timestamps[0]), 0)
+        XCTAssertGreaterThan(timestamps[2].timeIntervalSince(timestamps[1]), 0)
+    }
+
+    func testGPXImportInterpolatesMissingTimestampWithoutClaimingElapsedDuration() throws {
+        let start = Date(timeIntervalSince1970: 1_700_001_500)
+        let formatter = ISO8601DateFormatter()
+        let middle = start.addingTimeInterval(10)
+        let end = start.addingTimeInterval(20)
+        let gpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="Stride" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><name>Partially Timed Route</name><trkseg>
+            <trkpt lat="1.35210" lon="103.819800"><time>\(formatter.string(from: start))</time></trkpt>
+            <trkpt lat="1.35210" lon="103.819900"></trkpt>
+            <trkpt lat="1.35210" lon="103.820000"><time>\(formatter.string(from: end))</time></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """
+
+        try store.importGPX(Data(gpx.utf8))
+        let imported = try XCTUnwrap(
+            store.fetchCompletedActivities().first { $0.title == "Imported GPX - Partially Timed Route" }
+        )
+        let timestamps = imported.trackPoints
+            .sorted { $0.timestamp < $1.timestamp }
+            .map(\.timestamp)
+
+        XCTAssertEqual(timestamps.count, 3)
+        XCTAssertEqual(timestamps[0].timeIntervalSince(start), 0, accuracy: 0.01)
+        XCTAssertEqual(timestamps[1].timeIntervalSince(middle), 0, accuracy: 0.01)
+        XCTAssertEqual(timestamps[2].timeIntervalSince(end), 0, accuracy: 0.01)
+        XCTAssertEqual(imported.elapsedTimeSeconds, 0)
+    }
+
     func testJSONBackupCanBeRestoredIntoAnotherLocalStore() throws {
         let t0 = Date(timeIntervalSince1970: 1_700_001_400)
         let activity = store.createActivity(title: "Backup Test", activityType: .hiking, startDate: t0)
