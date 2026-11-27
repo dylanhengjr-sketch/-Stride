@@ -12,4 +12,5 @@ enum AppConfig {
     static let autoResumeSignalMaxAgeSeconds: TimeInterval = 8.0
     static let pointFlushBatchSize: Int = 25
     static let pointFlushMaxIntervalSeconds: TimeInterval = 5.0
+    static let pointFlushRetryIntervalSeconds: TimeInterval = 5.0
 }
