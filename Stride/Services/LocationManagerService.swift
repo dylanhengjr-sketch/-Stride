@@ -1,4 +1,3 @@
-
 import Foundation
 import CoreLocation
 import CoreMotion
@@ -10,7 +9,6 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     private let altimeter = CMAltimeter()
     private var backgroundActivitySession: CLBackgroundActivitySession?
-    private var serviceSession: CLServiceSession?
 
     private var isTrackingActive: Bool = false
     private var isBarometerRunning: Bool = false
@@ -124,23 +122,12 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
                 backgroundActivitySession = CLBackgroundActivitySession()
             }
         }
-
-        if #available(iOS 18.0, *) {
-            if serviceSession == nil {
-                serviceSession = CLServiceSession(authorization: .whenInUse)
-            }
-        }
     }
 
     private func endBackgroundActivitySessionIfAvailable() {
         if #available(iOS 17.0, *) {
             backgroundActivitySession?.invalidate()
             backgroundActivitySession = nil
-        }
-
-        if #available(iOS 18.0, *) {
-            serviceSession?.invalidate()
-            serviceSession = nil
         }
     }
 
