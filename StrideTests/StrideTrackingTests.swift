@@ -41,11 +41,12 @@ final class StrideTrackingTests: XCTestCase {
                 }
             },
             deleteHandler: { [weak self] contextToDelete, activity in
-                guard self?.shouldFailDelete != true else {
-                    throw SimulatedPersistenceError.diskWriteFailed
-                }
                 try contextToDelete.transaction {
                     contextToDelete.delete(activity)
+                    if self?.shouldFailDelete == true {
+                        // Simulate the transaction failing after the delete is staged.
+                        throw SimulatedPersistenceError.diskWriteFailed
+                    }
                 }
             }
         )
@@ -1133,7 +1134,7 @@ final class StrideTrackingTests: XCTestCase {
         )
 
         let activityID = try XCTUnwrap(store.fetchInProgressActivity()?.id)
-        // Simulate a deletion transaction failure before it commits.
+        // Simulate a transaction failure after deletion has been staged.
         // The persisted workout and its route points must remain available.
         shouldFailDelete = true
 
