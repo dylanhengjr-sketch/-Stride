@@ -250,8 +250,11 @@ final class LocalDatabaseStore: ObservableObject {
     func importGPX(_ data: Data) throws {
         let parsed = try GPXImportParser.parse(data)
         guard !parsed.points.isEmpty else { throw TransferError.noRoutePoints }
-        let firstDate = parsed.points.first?.timestamp ?? Date()
-        let lastDate = parsed.points.last?.timestamp ?? firstDate
+        let importedAt = Date()
+        let resolvedTimestamps = Self.resolvedGPXPointTimestamps(parsed.points, fallbackDate: importedAt)
+        let hasCompleteTimestamps = parsed.points.allSatisfy { $0.timestamp != nil }
+        let firstDate = resolvedTimestamps.first ?? importedAt
+        let lastDate = resolvedTimestamps.last ?? firstDate
         var distance = 0.0
         var gain = 0.0
         var loss = 0.0
@@ -268,7 +271,9 @@ final class LocalDatabaseStore: ObservableObject {
             }
             previous = point
         }
-        let elapsed = max(0, lastDate.timeIntervalSince(firstDate))
+        // Missing GPX timestamps are synthesized only to keep route points ordered.
+        // They must not be presented as a measured workout duration.
+        let elapsed = hasCompleteTimestamps ? max(0, lastDate.timeIntervalSince(firstDate)) : 0
         let activity = WorkoutActivity(
             title: parsed.name.isEmpty
                 ? "Imported GPX - \(firstDate.formatted(date: .abbreviated, time: .shortened))"
@@ -289,12 +294,12 @@ final class LocalDatabaseStore: ObservableObject {
             elevationLossMeters: loss
         )
         modelContext.insert(activity)
-        for point in parsed.points {
+        for (index, point) in parsed.points.enumerated() {
             let trackPoint = TrackPoint(
                 activityID: activity.id,
                 latitude: point.latitude,
                 longitude: point.longitude,
-                timestamp: point.timestamp,
+                timestamp: resolvedTimestamps[index],
                 horizontalAccuracy: 5,
                 verticalAccuracy: point.hasElevation ? 5 : -1,
                 altitude: point.elevation,
@@ -313,6 +318,57 @@ final class LocalDatabaseStore: ObservableObject {
         pendingPointCount = 0
         lastFlushDate = Date()
         lastSaveError = nil
+    }
+
+    private static func resolvedGPXPointTimestamps(
+        _ points: [GPXImportPoint],
+        fallbackDate: Date
+    ) -> [Date] {
+        var resolved = points.map(\.timestamp)
+
+        // A valid GPX track may omit every point timestamp. Use import-time
+        // timestamps with tiny offsets to preserve point order without implying
+        // a measurable elapsed duration.
+        guard resolved.contains(where: { $0 != nil }) else {
+            return points.indices.map {
+                fallbackDate.addingTimeInterval(Double($0) * 0.001)
+            }
+        }
+
+        var index = 0
+        while index < resolved.count {
+            if resolved[index] != nil {
+                index += 1
+                continue
+            }
+
+            let gapStart = index
+            while index < resolved.count, resolved[index] == nil {
+                index += 1
+            }
+            let gapEnd = index
+            let gapLength = gapEnd - gapStart
+            let previous = gapStart > 0 ? resolved[gapStart - 1] : nil
+            let next = gapEnd < resolved.count ? resolved[gapEnd] : nil
+
+            for offset in 0..<gapLength {
+                let pointIndex = gapStart + offset
+                if let previous, let next, next > previous {
+                    let fraction = Double(offset + 1) / Double(gapLength + 1)
+                    resolved[pointIndex] = previous.addingTimeInterval(
+                        next.timeIntervalSince(previous) * fraction
+                    )
+                } else if let previous {
+                    resolved[pointIndex] = previous.addingTimeInterval(Double(offset + 1))
+                } else if let next {
+                    resolved[pointIndex] = next.addingTimeInterval(-Double(gapLength - offset))
+                } else {
+                    resolved[pointIndex] = fallbackDate.addingTimeInterval(Double(pointIndex) * 0.001)
+                }
+            }
+        }
+
+        return resolved.map { $0 ?? fallbackDate }
     }
 
     private static func xmlEscaped(_ value: String) -> String {
@@ -563,7 +619,7 @@ private struct StrideBackupSplit: Codable {
 private struct GPXImportPoint {
     let latitude: Double
     let longitude: Double
-    let timestamp: Date
+    let timestamp: Date?
     let elevation: Double
     let hasElevation: Bool
     let startsNewSegment: Bool
@@ -625,7 +681,7 @@ private final class GPXImportParser: NSObject, XMLParserDelegate {
                 points.append(GPXImportPoint(
                     latitude: latitude,
                     longitude: longitude,
-                    timestamp: currentTime ?? Date(timeIntervalSince1970: Double(points.count)),
+                    timestamp: currentTime,
                     elevation: currentElevation,
                     hasElevation: hasElevation,
                     startsNewSegment: startsNewSegment
