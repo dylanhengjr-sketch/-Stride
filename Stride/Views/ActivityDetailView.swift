@@ -28,7 +28,7 @@ struct ActivityDetailView: View {
                 LabeledContent("Avg Speed", value: activity.hasUnavailableMovingMetrics ? "—" : formattedSpeed(activity.averageSpeedMPS))
                 LabeledContent("Elevation Gain", value: String(format: "%.1f m", activity.elevationGainMeters))
                 LabeledContent("Elevation Loss", value: String(format: "%.1f m", activity.elevationLossMeters))
-                LabeledContent("Calories", value: String(format: "%.0f kcal", activity.estimatedCalories))
+                LabeledContent("Calories", value: activity.hasUnavailableMovingMetrics ? "—" : String(format: "%.0f kcal", activity.estimatedCalories))
             }
 
             if !activity.splits.isEmpty {
