@@ -45,6 +45,8 @@ final class WorkoutSessionController: ObservableObject {
     private let locationService: LocationManagerService
     private let store: LocalDatabaseStore
     private let settings: AppSettings
+    /// False in deterministic tests, where time is advanced explicitly.
+    private let usesUITicker: Bool
     private let filterEngine = GPSFilterEngine()
 
     private var activeActivity: WorkoutActivity?
@@ -75,10 +77,16 @@ final class WorkoutSessionController: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(locationService: LocationManagerService, store: LocalDatabaseStore, settings: AppSettings) {
+    init(
+        locationService: LocationManagerService,
+        store: LocalDatabaseStore,
+        settings: AppSettings,
+        usesUITicker: Bool = true
+    ) {
         self.locationService = locationService
         self.store = store
         self.settings = settings
+        self.usesUITicker = usesUITicker
         bindLocationCallbacks()
         bindPersistenceErrors()
     }
@@ -548,9 +556,17 @@ final class WorkoutSessionController: ObservableObject {
 
     private func startTicker() {
         stopTicker()
-        uiTicker = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.state != .idle else { return }
+        guard usesUITicker else { return }
+        uiTicker = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                guard self.state != .idle else {
+                    self.stopTicker()
+                    return
+                }
                 self.advanceClocks(to: Date())
             }
         }
