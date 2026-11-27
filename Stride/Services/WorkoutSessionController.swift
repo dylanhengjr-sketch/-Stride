@@ -441,8 +441,17 @@ final class WorkoutSessionController: ObservableObject {
         statusBanner = "Workout saved"
     }
 
-    func discardWorkout() {
+    func discardWorkout(now: Date = Date()) {
         guard state != .idle else { return }
+
+        if let activity = activeActivity,
+           !store.deleteActivity(activity, now: now) {
+            let failureMessage = "Workout could not be discarded. Check storage and try again."
+            statusBanner = failureMessage
+            persistenceFailureBanner = failureMessage
+            return
+        }
+
         pendingStartAfterPermission = false
         pendingResumeAfterPermission = false
         needsSegmentBreak = false
@@ -451,10 +460,6 @@ final class WorkoutSessionController: ObservableObject {
         stopTicker()
         locationService.stopActiveTracking()
 
-        if let activity = activeActivity {
-            store.deleteActivity(activity)
-        }
-
         activeActivity = nil
         sessionStartDate = nil
         lastClockUpdateDate = nil
@@ -462,6 +467,7 @@ final class WorkoutSessionController: ObservableObject {
         totalDistanceMeters = 0
         elapsedTimeSeconds = 0
         movingTimeSeconds = 0
+        clearPersistenceFailureBannerIfRecovered()
         statusBanner = "Workout discarded"
     }
 

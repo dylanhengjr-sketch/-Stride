@@ -95,11 +95,20 @@ final class LocalDatabaseStore: ObservableObject {
         return commitContext(now: now)
     }
 
-    func deleteActivity(_ activity: WorkoutActivity) {
-        pendingPoints.removeAll { $0.activityID == activity.id }
-        pendingPointCount = pendingPoints.count
+    @discardableResult
+    func deleteActivity(_ activity: WorkoutActivity, now: Date = Date()) -> Bool {
+        // Save queued points first so rollback only needs to undo the deletion.
+        guard flushPendingTrackPoints(now: now) else {
+            return false
+        }
+
         modelContext.delete(activity)
-        _ = commitContext(now: Date())
+        guard commitContext(now: now) else {
+            modelContext.rollback()
+            return false
+        }
+
+        return true
     }
 
     func enqueueTrackPoint(

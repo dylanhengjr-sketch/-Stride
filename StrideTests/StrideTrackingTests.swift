@@ -11,6 +11,8 @@ private enum SimulatedPersistenceError: Error {
 final class StrideTrackingTests: XCTestCase {
     private var container: ModelContainer!
     private var shouldFailSave = false
+    private var saveAttemptCount = 0
+    private var failingSaveAttempt: Int?
     private var store: LocalDatabaseStore!
     private var settings: AppSettings!
     private var locationService: LocationManagerService!
@@ -18,6 +20,8 @@ final class StrideTrackingTests: XCTestCase {
 
     override func setUp() async throws {
         shouldFailSave = false
+        saveAttemptCount = 0
+        failingSaveAttempt = nil
         let schema = Schema([
             WorkoutActivity.self,
             TrackPoint.self,
@@ -29,7 +33,12 @@ final class StrideTrackingTests: XCTestCase {
         let context = ModelContext(container)
 
         store = LocalDatabaseStore(modelContext: context) { [weak self] in
+            self?.saveAttemptCount += 1
             if self?.shouldFailSave == true {
+                throw SimulatedPersistenceError.diskWriteFailed
+            }
+            if let failingAttempt = self?.failingSaveAttempt,
+               self?.saveAttemptCount == failingAttempt {
                 throw SimulatedPersistenceError.diskWriteFailed
             }
             if context.hasChanges {
@@ -1045,6 +1054,51 @@ final class StrideTrackingTests: XCTestCase {
         accumulator.beginSession()
         XCTAssertNil(accumulator.latestSampleAltitudeMeters)
         XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 0) ?? .nan, 125.0, accuracy: 0.001)
+    }
+
+    func testDiscardWorkoutRetainsSessionAndCanRetryWhenDeleteSaveFails() throws {
+        let t0 = Date(timeIntervalSince1970: 1_700_000_640)
+        controller.beginWorkoutSession(now: t0)
+
+        let firstLocation = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.81980),
+            altitude: 10,
+            horizontalAccuracy: 5,
+            verticalAccuracy: 5,
+            course: 0,
+            speed: 0,
+            timestamp: t0
+        )
+        controller.handleIncomingLocation(
+            firstLocation,
+            barometricRelativeAltitude: nil,
+            isBarometerActive: false,
+            now: t0
+        )
+
+        let activityID = try XCTUnwrap(store.fetchInProgressActivity()?.id)
+        // Deleting flushes queued points first, then commits the deletion.
+        // Fail only the second save to exercise rollback of the delete itself.
+        failingSaveAttempt = saveAttemptCount + 2
+
+        controller.discardWorkout(now: t0.addingTimeInterval(1))
+
+        XCTAssertEqual(controller.state, .recording)
+        XCTAssertTrue(controller.statusBanner?.contains("could not be discarded") == true)
+        XCTAssertEqual(store.pendingPointCount, 0)
+        XCTAssertEqual(store.fetchInProgressActivity()?.id, activityID)
+        XCTAssertEqual(
+            store.fetchInProgressActivity()?.trackPoints.count,
+            1,
+            "Queued points should remain persisted when the delete fails"
+        )
+
+        failingSaveAttempt = nil
+        controller.discardWorkout(now: t0.addingTimeInterval(2))
+
+        XCTAssertEqual(controller.state, .idle)
+        XCTAssertEqual(controller.statusBanner, "Workout discarded")
+        XCTAssertFalse(store.fetchAllActivities().contains { $0.id == activityID })
     }
 
     func testFinishWorkoutRetainsSessionWhenPersistenceFailsAndCanRetry() {
