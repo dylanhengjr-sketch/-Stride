@@ -1,3 +1,4 @@
+
 import Foundation
 import CoreLocation
 import CoreMotion
@@ -6,7 +7,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     var onLocationReceived: ((CLLocation, Double?, Bool) -> Void)?
     var onAuthorizationChanged: ((CLAuthorizationStatus) -> Void)?
 
-       private let locationManager = CLLocationManager()
+    private let locationManager = CLLocationManager()
     private let altimeter = CMAltimeter()
     private var backgroundActivitySession: CLBackgroundActivitySession?
     private var serviceSession: CLServiceSession?
@@ -108,6 +109,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
         isTrackingActive = true
+
         if useBarometer {
             startBarometerIfAvailable()
         } else {
@@ -122,6 +124,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
                 backgroundActivitySession = CLBackgroundActivitySession()
             }
         }
+
         if #available(iOS 18.0, *) {
             if serviceSession == nil {
                 serviceSession = CLServiceSession(authorization: .whenInUse)
@@ -134,6 +137,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
             backgroundActivitySession?.invalidate()
             backgroundActivitySession = nil
         }
+
         if #available(iOS 18.0, *) {
             serviceSession?.invalidate()
             serviceSession = nil
@@ -154,8 +158,10 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     private func startBarometerIfAvailable() {
         guard !isBarometerRunning, CMAltimeter.isRelativeAltitudeAvailable() else { return }
         isBarometerRunning = true
+
         altimeter.startRelativeAltitudeUpdates(to: .main) { [weak self] data, error in
             guard let self else { return }
+
             if let error {
                 self.lastErrorMessage = error.localizedDescription
                 self.altimeter.stopRelativeAltitudeUpdates()
@@ -163,6 +169,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
                 self.latestBarometricRelativeAltitude = nil
                 return
             }
+
             if let relAlt = data?.relativeAltitude.doubleValue {
                 let offset = self.barometricOffsetMeters ?? 0.0
                 self.latestBarometricRelativeAltitude = offset + relAlt
@@ -183,6 +190,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard isTrackingActive else { return }
         let baroActive = settingsBarometerActive()
+
         for location in locations {
             onLocationReceived?(location, latestBarometricRelativeAltitude, baroActive)
         }
