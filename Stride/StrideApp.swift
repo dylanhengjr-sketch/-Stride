@@ -26,9 +26,9 @@ struct StrideApp: App {
         }
 
         let context = ModelContext(modelContainer)
-        let dbStore = LocalDatabaseStore(modelContext: context) {
-            if context.hasChanges {
-                try context.save()
+        let dbStore = LocalDatabaseStore(modelContext: context) { contextToSave in
+            if contextToSave.hasChanges {
+                try contextToSave.save()
             }
         }
         let appSettings = dbStore.fetchOrCreateSettings()
