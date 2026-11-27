@@ -1241,6 +1241,58 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertEqual(store.pendingPointCount, 0)
     }
 
+    func testPendingTrackPointsRetryWithoutAnotherGPSUpdate() async {
+        var shouldFailNextSave = false
+        var saveAttempts = 0
+        let retryContext = ModelContext(container)
+        let retryStore = LocalDatabaseStore(
+            modelContext: retryContext,
+            saveHandler: { context in
+                saveAttempts += 1
+                if shouldFailNextSave {
+                    shouldFailNextSave = false
+                    throw SimulatedPersistenceError.diskWriteFailed
+                }
+                if context.hasChanges {
+                    try context.save()
+                }
+            },
+            pendingFlushRetryInterval: 0.05
+        )
+
+        let t0 = Date(timeIntervalSince1970: 1_700_001_200)
+        let activity = retryStore.createActivity(
+            title: "Automatic Flush Retry",
+            activityType: .running,
+            startDate: t0
+        )
+        let point = TrackPoint(
+            activityID: activity.id,
+            latitude: 1.3521,
+            longitude: 103.8198,
+            timestamp: t0.addingTimeInterval(2),
+            horizontalAccuracy: 5,
+            altitude: 10,
+            isAccepted: true,
+            activity: activity
+        )
+
+        shouldFailNextSave = true
+        retryStore.enqueueTrackPoint(point, forceFlush: true, now: t0.addingTimeInterval(2))
+        XCTAssertEqual(retryStore.pendingPointCount, 1)
+        XCTAssertNotNil(retryStore.lastSaveError)
+
+        let deadline = Date().addingTimeInterval(2)
+        while retryStore.pendingPointCount > 0 && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        XCTAssertEqual(retryStore.pendingPointCount, 0)
+        XCTAssertNil(retryStore.lastSaveError)
+        XCTAssertGreaterThanOrEqual(saveAttempts, 3)
+        XCTAssertEqual(retryStore.fetchAllActivities().first?.trackPoints.count, 1)
+    }
+
     func testAutomaticKilometreSplitIsCreatedAndPersisted() {
         let t0 = Date(timeIntervalSince1970: 1_700_001_000)
         controller.selectedActivityType = .running
