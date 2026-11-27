@@ -15,7 +15,7 @@ final class LocalDatabaseStore: ObservableObject {
 
     init(
         modelContext: ModelContext,
-        saveHandler: (() throws -> Void)? = nil
+        saveHandler: ((ModelContext) throws -> Void)? = nil
     ) {
         self.modelContext = modelContext
         if let saveHandler {
@@ -112,7 +112,6 @@ final class LocalDatabaseStore: ObservableObject {
 
         do {
             guard let persistedActivity = try deletionContext.fetch(descriptor).first else {
-                modelContext.reset()
                 return true
             }
 
@@ -123,7 +122,6 @@ final class LocalDatabaseStore: ObservableObject {
 
             // All main-context changes were flushed before deletion; reset it so
             // later fetches cannot return a stale, already-deleted activity.
-            modelContext.reset()
             return true
         } catch {
             lastSaveError = error.localizedDescription
