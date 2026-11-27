@@ -19,7 +19,8 @@ struct GPSFilterConfig: Sendable {
     static func `for`(
         activityType: ActivityType,
         maxAccuracy: Double,
-        maxFutureToleranceSeconds: TimeInterval = 2.0
+        maxFutureToleranceSeconds: TimeInterval = 2.0,
+        movingConfirmationSamples: Int = AppConfig.movingConfirmationSamples
     ) -> GPSFilterConfig {
         let minMove: Double
         switch activityType {
@@ -37,7 +38,9 @@ struct GPSFilterConfig: Sendable {
             maxPlausibleSpeedMPS: activityType.maxPlausibleSpeedMPS,
             maxAgeSeconds: 20.0,
             maxFutureToleranceSeconds: maxFutureToleranceSeconds,
-            movingConfirmationSamples: (activityType == .walking || activityType == .hiking) ? 2 : AppConfig.movingConfirmationSamples,
+            movingConfirmationSamples: (activityType == .walking || activityType == .hiking)
+                ? min(2, max(1, movingConfirmationSamples))
+                : max(1, movingConfirmationSamples),
             stationaryConfirmationSamples: AppConfig.stationaryConfirmationSamples
         )
     }
