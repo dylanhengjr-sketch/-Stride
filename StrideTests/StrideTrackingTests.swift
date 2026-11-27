@@ -41,7 +41,7 @@ final class StrideTrackingTests: XCTestCase {
         settings.autoPauseEnabled = true
         settings.autoPauseSpeedThresholdMPS = 0.45
         settings.useBarometerWhenAvailable = true
-        locationService = LocationManagerService()
+        locationService = LocationManagerService(authorizationStatusOverride: .authorizedWhenInUse)
         controller = WorkoutSessionController(
             locationService: locationService,
             store: store,
