@@ -1163,6 +1163,7 @@ final class StrideTrackingTests: XCTestCase {
 
         XCTAssertEqual(controller.state, .idle)
         XCTAssertEqual(controller.statusBanner, "Workout discarded")
+        XCTAssertFalse(store.fetchAllActivities().contains { $0.id == activityID })
         let verificationAfterRetry = ModelContext(container)
         XCTAssertFalse(
             try verificationAfterRetry.fetch(FetchDescriptor<WorkoutActivity>())
