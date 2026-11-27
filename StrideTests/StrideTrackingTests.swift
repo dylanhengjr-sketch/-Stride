@@ -1296,6 +1296,39 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertEqual(imported.elapsedTimeSeconds, 0)
     }
 
+    func testGPXImportAcceptsMixedTimestampPrecision() throws {
+        let start = Date(timeIntervalSince1970: 1_700_001_600)
+        let formatter = ISO8601DateFormatter()
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let middle = start.addingTimeInterval(10.5)
+        let end = start.addingTimeInterval(20)
+        let gpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="Stride" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><name>Mixed Precision Route</name><trkseg>
+            <trkpt lat="1.35210" lon="103.819800"><time>\(formatter.string(from: start))</time></trkpt>
+            <trkpt lat="1.35210" lon="103.819900"><time>\(fractionalFormatter.string(from: middle))</time></trkpt>
+            <trkpt lat="1.35210" lon="103.820000"><time>\(formatter.string(from: end))</time></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """
+
+        try store.importGPX(Data(gpx.utf8))
+        let imported = try XCTUnwrap(
+            store.fetchCompletedActivities().first { $0.title == "Imported GPX - Mixed Precision Route" }
+        )
+        let timestamps = imported.trackPoints
+            .sorted { $0.timestamp < $1.timestamp }
+            .map(\.timestamp)
+
+        XCTAssertEqual(timestamps.count, 3)
+        XCTAssertEqual(timestamps[0].timeIntervalSince(start), 0, accuracy: 0.01)
+        XCTAssertEqual(timestamps[1].timeIntervalSince(middle), 0, accuracy: 0.01)
+        XCTAssertEqual(timestamps[2].timeIntervalSince(end), 0, accuracy: 0.01)
+        XCTAssertEqual(imported.elapsedTimeSeconds, 20, accuracy: 0.01)
+    }
+
     func testJSONBackupCanBeRestoredIntoAnotherLocalStore() throws {
         let t0 = Date(timeIntervalSince1970: 1_700_001_400)
         let activity = store.createActivity(title: "Backup Test", activityType: .hiking, startDate: t0)
