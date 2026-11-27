@@ -1060,6 +1060,58 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 0) ?? .nan, 125.0, accuracy: 0.001)
     }
 
+    func testDiscardWorkoutClearsAllDisplayedWorkoutMetrics() {
+        let t0 = Date(timeIntervalSince1970: 1_700_000_630)
+        controller.beginWorkoutSession(now: t0)
+
+        for (index, offset) in [0.0, 0.00004, 0.00008, 0.00012].enumerated() {
+            let location = CLLocation(
+                coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.81980 + offset),
+                altitude: 10 + Double(index) * 2.5,
+                horizontalAccuracy: 5,
+                verticalAccuracy: 5,
+                course: 90,
+                speed: 3,
+                timestamp: t0.addingTimeInterval(Double(index) * 2)
+            )
+            controller.handleIncomingLocation(
+                location,
+                barometricRelativeAltitude: nil,
+                isBarometerActive: false,
+                now: t0.addingTimeInterval(Double(index) * 2)
+            )
+        }
+        controller.advanceClocks(to: t0.addingTimeInterval(8))
+
+        XCTAssertGreaterThan(controller.totalDistanceMeters, 0)
+        XCTAssertGreaterThan(controller.elapsedTimeSeconds, 0)
+        XCTAssertGreaterThan(controller.movingTimeSeconds, 0)
+        XCTAssertGreaterThan(controller.averageSpeedMPS, 0)
+        XCTAssertGreaterThan(controller.maxSpeedMPS, 0)
+        XCTAssertNotNil(controller.averagePaceSecPerKm)
+        XCTAssertGreaterThan(controller.elevationGainMeters, 0)
+        XCTAssertGreaterThan(controller.estimatedCalories, 0)
+        XCTAssertGreaterThan(controller.acceptedPointCount, 0)
+
+        controller.discardWorkout(now: t0.addingTimeInterval(9))
+
+        XCTAssertEqual(controller.state, .idle)
+        XCTAssertEqual(controller.totalDistanceMeters, 0)
+        XCTAssertEqual(controller.elapsedTimeSeconds, 0)
+        XCTAssertEqual(controller.movingTimeSeconds, 0)
+        XCTAssertEqual(controller.currentSpeedMPS, 0)
+        XCTAssertEqual(controller.averageSpeedMPS, 0)
+        XCTAssertEqual(controller.maxSpeedMPS, 0)
+        XCTAssertNil(controller.currentPaceSecPerKm)
+        XCTAssertNil(controller.averagePaceSecPerKm)
+        XCTAssertEqual(controller.elevationGainMeters, 0)
+        XCTAssertEqual(controller.elevationLossMeters, 0)
+        XCTAssertEqual(controller.activeElevationSource, .unknown)
+        XCTAssertEqual(controller.estimatedCalories, 0)
+        XCTAssertEqual(controller.acceptedPointCount, 0)
+        XCTAssertEqual(controller.rejectedPointCount, 0)
+    }
+
     func testDiscardWorkoutRetainsSessionAndCanRetryWhenDeleteSaveFails() throws {
         let t0 = Date(timeIntervalSince1970: 1_700_000_640)
         controller.beginWorkoutSession(now: t0)
