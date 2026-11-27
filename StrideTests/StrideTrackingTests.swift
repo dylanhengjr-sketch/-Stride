@@ -197,6 +197,31 @@ final class StrideTrackingTests: XCTestCase {
         }
     }
 
+    func testReportedGPSSpeedCannotInflateMeasuredRouteSpeed() {
+        let engine = GPSFilterEngine()
+        let config = GPSFilterConfig.for(activityType: .walking, maxAccuracy: 25.0)
+        let t0 = Date(timeIntervalSince1970: 1_700_000_258)
+        let reportedSpeed = 5.0
+
+        let p0 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819800), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: reportedSpeed, timestamp: t0)
+        let p1 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819840), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: reportedSpeed, timestamp: t0.addingTimeInterval(2))
+        let p2 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819880), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: reportedSpeed, timestamp: t0.addingTimeInterval(4))
+
+        _ = engine.evaluate(location: p0, config: config, now: t0)
+        _ = engine.evaluate(location: p1, config: config, now: t0.addingTimeInterval(2))
+        let decision = engine.evaluate(location: p2, config: config, now: t0.addingTimeInterval(4))
+
+        guard case .accept(let distance, let speed, let movementState, let isRoutePoint) = decision else {
+            XCTFail("Expected the measured route point to be accepted")
+            return
+        }
+
+        XCTAssertEqual(movementState, .confirmedMoving)
+        XCTAssertTrue(isRoutePoint)
+        XCTAssertEqual(speed, distance / 4.0, accuracy: 0.001)
+        XCTAssertLessThan(speed, reportedSpeed)
+    }
+
     func testMovingTimeDoesNotStopBetweenAcceptedRoutePoints() {
         let engine = GPSFilterEngine()
         let config = GPSFilterConfig.for(activityType: .running, maxAccuracy: 25.0)
@@ -211,7 +236,7 @@ final class StrideTrackingTests: XCTestCase {
         _ = engine.evaluate(location: p1, config: config, now: t0.addingTimeInterval(2))
         _ = engine.evaluate(location: p2, config: config, now: t0.addingTimeInterval(4))
         let d3 = engine.evaluate(location: p3, config: config, now: t0.addingTimeInterval(6))
-        let expectedRouteSpeed = max(p3.distance(from: p0) / 6.0, p3.speed)
+        let expectedRouteSpeed = p3.distance(from: p0) / 6.0
         XCTAssertEqual(
             d3,
             .accept(
