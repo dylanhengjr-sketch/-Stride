@@ -464,11 +464,43 @@ final class WorkoutSessionController: ObservableObject {
         sessionStartDate = nil
         lastClockUpdateDate = nil
         state = .idle
+        resetLiveMetricsAfterDiscard()
+        clearPersistenceFailureBannerIfRecovered()
+        statusBanner = "Workout discarded"
+    }
+
+    private func resetLiveMetricsAfterDiscard() {
         totalDistanceMeters = 0
         elapsedTimeSeconds = 0
         movingTimeSeconds = 0
-        clearPersistenceFailureBannerIfRecovered()
-        statusBanner = "Workout discarded"
+        currentSpeedMPS = 0
+        averageSpeedMPS = 0
+        maxSpeedMPS = 0
+        currentPaceSecPerKm = nil
+        averagePaceSecPerKm = nil
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        activeElevationSource = .unknown
+        estimatedCalories = 0
+        acceptedPointCount = 0
+        rejectedPointCount = 0
+
+        stationaryDurationSeconds = 0
+        lastConfirmedStationaryDate = nil
+        lastConfirmedMovingDate = nil
+        activeMovingSpeedMPS = 0
+        isAutoResumeMovementConfirmed = false
+        autoResumeConfirmedSinceDate = nil
+        lastAutoResumeConfirmationDate = nil
+        autoResumeMovingDurationSeconds = 0
+        barometerAnchorAltitudeMeters = nil
+        elevationTracker = ElevationTracker()
+        filterEngine.reset()
+
+        splitProgressMeters = 0
+        splitProgressSeconds = 0
+        lastSplitMovingTimeSeconds = 0
+        completedSplitCount = 0
     }
 
     func handleLifecycleTransition(isBackgroundOrInactive: Bool, now: Date = Date()) {
