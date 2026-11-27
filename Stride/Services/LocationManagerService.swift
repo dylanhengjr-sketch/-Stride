@@ -6,11 +6,9 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     var onLocationReceived: ((CLLocation, Double?, Bool) -> Void)?
     var onAuthorizationChanged: ((CLAuthorizationStatus) -> Void)?
 
-    private let locationManager = CLLocationManager()
+       private let locationManager = CLLocationManager()
     private let altimeter = CMAltimeter()
-    @available(iOS 17.0, *)
     private var backgroundActivitySession: CLBackgroundActivitySession?
-    @available(iOS 18.0, *)
     private var serviceSession: CLServiceSession?
 
     private var isTrackingActive: Bool = false
