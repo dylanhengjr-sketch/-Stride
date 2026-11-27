@@ -43,22 +43,13 @@ jobs:
         run: |
           xcodegen generate --spec project.yml
 
-      - name: List available simulators
-        run: |
-          xcrun simctl list devices available
-
       - name: Run automated tests
+        timeout-minutes: 20
         run: |
-          DEVICE_ID=$(xcrun simctl list devices available | grep -m 1 -E 'iPhone.*\([A-F0-9-]{36}\)' | sed -E 's/.*\(([A-F0-9-]{36})\).*/\1/')
-          if [ -z "$DEVICE_ID" ]; then
-            echo "No available iPhone simulator found."
-            exit 1
-          fi
-          echo "Using simulator: $DEVICE_ID"
           xcodebuild test \
             -project Stride.xcodeproj \
             -scheme Stride \
-            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
             -parallel-testing-enabled NO \
             -maximum-concurrent-test-simulator-destinations 1 \
             -resultBundlePath TestResults.xcresult \
