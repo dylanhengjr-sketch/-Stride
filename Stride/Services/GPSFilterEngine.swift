@@ -37,7 +37,7 @@ struct GPSFilterConfig: Sendable {
             maxPlausibleSpeedMPS: activityType.maxPlausibleSpeedMPS,
             maxAgeSeconds: 20.0,
             maxFutureToleranceSeconds: maxFutureToleranceSeconds,
-            movingConfirmationSamples: AppConfig.movingConfirmationSamples,
+            movingConfirmationSamples: (activityType == .walking || activityType == .hiking) ? 2 : AppConfig.movingConfirmationSamples,
             stationaryConfirmationSamples: AppConfig.stationaryConfirmationSamples
         )
     }
@@ -50,7 +50,7 @@ struct GPSFilterConfig: Sendable {
             maxPlausibleSpeedMPS: base.maxPlausibleSpeedMPS,
             maxAgeSeconds: base.maxAgeSeconds,
             maxFutureToleranceSeconds: base.maxFutureToleranceSeconds,
-            movingConfirmationSamples: base.movingConfirmationSamples,
+            movingConfirmationSamples: 2,
             stationaryConfirmationSamples: base.stationaryConfirmationSamples
         )
     }
