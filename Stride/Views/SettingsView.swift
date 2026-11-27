@@ -107,9 +107,10 @@ struct SettingsView: View {
             : String(format: "%.0f mi", meters / 1_609.344)
     }
 
-    private func importSelectedFile(_ result: Result<URL, Error>) {
+    private func importSelectedFile(_ result: Result<[URL], Error>) {
         do {
-            let url = try result.get()
+            let urls = try result.get()
+            guard let url = urls.first else { return }
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
             let data = try Data(contentsOf: url)
