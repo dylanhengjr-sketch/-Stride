@@ -41,12 +41,14 @@ final class StrideTrackingTests: XCTestCase {
                 }
             },
             deleteHandler: { [weak self] contextToDelete, activity in
+                if self?.shouldFailDelete == true {
+                    // Stage a delete, then simulate a failure before this disposable
+                    // context can save it to the persistent store.
+                    contextToDelete.delete(activity)
+                    throw SimulatedPersistenceError.diskWriteFailed
+                }
                 try contextToDelete.transaction {
                     contextToDelete.delete(activity)
-                    if self?.shouldFailDelete == true {
-                        // Simulate the transaction failing after the delete is staged.
-                        throw SimulatedPersistenceError.diskWriteFailed
-                    }
                 }
             }
         )
