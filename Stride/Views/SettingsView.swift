@@ -80,7 +80,7 @@ struct SettingsView: View {
             .onChange(of: settings.useBarometerWhenAvailable) { _, _ in persistSettings() }
             .onChange(of: settings.appearanceModeRaw) { _, _ in persistSettings() }
             .onChange(of: settings.weeklyGoalMeters) { _, _ in persistSettings() }
-            .onChange(of: settings.monthlyGoalMeters) { _, _ in persistSettings() }            .navigationTitle("Settings")
+            .onChange(of: settings.monthlyGoalMeters) { _, _ in persistSettings() }
             .fileImporter(
                 isPresented: $showingImporter,
                 allowedContentTypes: [.json, .xml, UTType(filenameExtension: "gpx") ?? .xml],
