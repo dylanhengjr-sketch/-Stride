@@ -1540,8 +1540,19 @@ final class StrideTrackingTests: XCTestCase {
         settings.userWeightKg = 82
         store.updateActivity(activity, flushPoints: true, now: t0.addingTimeInterval(60))
 
+        let discardedActivity = store.createActivity(
+            title: "Discarded Backup Test",
+            activityType: .running,
+            startDate: t0.addingTimeInterval(120)
+        )
+        discardedActivity.status = .discarded
+        XCTAssertTrue(store.updateActivity(discardedActivity, now: t0.addingTimeInterval(120)))
+
         let backup = try store.makeJSONBackup()
         let backupObject = try XCTUnwrap(JSONSerialization.jsonObject(with: backup) as? [String: Any])
+        let backedUpActivities = try XCTUnwrap(backupObject["activities"] as? [[String: Any]])
+        XCTAssertEqual(backedUpActivities.count, 1)
+        XCTAssertEqual(backedUpActivities.first?["title"] as? String, "Backup Test")
         let exportedSettings = try XCTUnwrap(backupObject["settings"] as? [String: Any])
         XCTAssertFalse(exportedSettings.keys.contains("voiceAnnouncementsEnabled"))
 
