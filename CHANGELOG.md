@@ -1,5 +1,15 @@
 # Changelog
 
+## Reliability and recovery
+
+- Settings edits are explicitly saved immediately and covered by a fresh-context persistence test.
+- Untimed GPX routes report moving time, pace, speed, and calories as unavailable rather than as measured zero values.
+- Failed pending track-point saves schedule periodic retries while the app is active; a regression test verifies retry without another GPS update.
+- Discarding a workout clears all live metric values and session tracking state.
+- Workout deletion uses a disposable SwiftData context so a failed delete cannot mutate the active workout context. Tests verify that the saved workout and route points survive a staged failure and can be deleted on retry.
+- Unit-test controllers disable the wall-clock UI ticker so tests that use simulated historical timestamps remain deterministic.
+- Removed the Gemini review workflow. The repository's only active workflow is the iOS test/build workflow.
+
 ## Final build
 
 - Removed spoken split announcements, their Settings preference, and the audio background mode. Automatic split calculation and persisted split history remain.
@@ -32,6 +42,6 @@
 - Added average speed to the live workout metrics and supplied a 1024x1024 app icon placeholder.
 - Added regression tests for split persistence and GPX/JSON transfer.
 
-## Verification limits
+## Verification
 
-Swift syntax parsing, YAML parsing, Info.plist parsing, and asset catalog JSON parsing were performed in the available Linux environment. Xcode compilation and XCTest execution were not available and have not been performed.
+Use the repository's root GitHub Actions workflow, `.github/workflows/main.yml`, to run XCTest on an iPhone simulator and build the Release app for a generic physical iOS device. Treat a source revision as validated only when both the test and physical-device build steps succeed for that exact commit.
