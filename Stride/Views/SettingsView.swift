@@ -109,6 +109,13 @@ struct SettingsView: View {
         }
     }
 
+    private func persistSettings() {
+        guard store.saveSettings() else {
+            transferError = store.lastSaveError ?? "Settings could not be saved. Check device storage."
+            return
+        }
+    }
+
     private func formatGoal(_ meters: Double) -> String {
         settings.distanceUnitKilometers
             ? String(format: "%.0f km", meters / 1_000)
