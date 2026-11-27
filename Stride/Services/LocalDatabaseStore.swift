@@ -10,7 +10,6 @@ final class LocalDatabaseStore: ObservableObject {
 
     private let modelContext: ModelContext
     private let saveHandler: (ModelContext) throws -> Void
-    private let deleteHandler: (ModelContext, WorkoutActivity) throws -> Void
     private var pendingPoints: [TrackPoint] = []
     private var lastFlushDate: Date?
     private var pendingFlushRetryTimer: Timer?
@@ -19,7 +18,6 @@ final class LocalDatabaseStore: ObservableObject {
     init(
         modelContext: ModelContext,
         saveHandler: ((ModelContext) throws -> Void)? = nil,
-        deleteHandler: ((ModelContext, WorkoutActivity) throws -> Void)? = nil,
         pendingFlushRetryInterval: TimeInterval = AppConfig.pointFlushRetryIntervalSeconds
     ) {
         self.modelContext = modelContext
@@ -31,11 +29,6 @@ final class LocalDatabaseStore: ObservableObject {
                 if context.hasChanges {
                     try context.save()
                 }
-            }
-        }
-        self.deleteHandler = deleteHandler ?? { context, activity in
-            try context.transaction {
-                context.delete(activity)
             }
         }
     }
@@ -114,34 +107,31 @@ final class LocalDatabaseStore: ObservableObject {
 
     @discardableResult
     func deleteActivity(_ activity: WorkoutActivity, now: Date = Date()) -> Bool {
-        // Persist queued route points before beginning the deletion transaction.
+        // Persist queued route points before marking the workout as discarded.
         guard flushPendingTrackPoints(now: now) else {
             return false
         }
 
-        // Perform deletion in a disposable context. If the transaction or store
-        // write fails, discarding this context leaves the live workout object and
-        // its relationship graph untouched.
-        let deletionContext = ModelContext(modelContext.container)
-        do {
-            let activityID = activity.id
-            let descriptor = FetchDescriptor<WorkoutActivity>(
-                predicate: #Predicate { $0.id == activityID }
-            )
-            guard let persistedActivity = try deletionContext.fetch(descriptor).first else {
-                lastSaveError = nil
-                return true
-            }
+        // Use the existing discarded status as a tombstone instead of deleting
+        // the SwiftData object graph. A cascade delete can invalidate TrackPoint
+        // instances even when a store write fails, making the live session unsafe.
+        let previousStatus = activity.status
+        let previousFinishDate = activity.finishDate
+        let previousUpdatedDate = activity.lastUpdatedDate
 
-            try deleteHandler(deletionContext, persistedActivity)
-            lastSaveError = nil
-            return true
-        } catch {
-            // Do not roll back a context after a failed SwiftData transaction:
-            // dispose of the isolated context instead.
-            lastSaveError = error.localizedDescription
+        activity.status = .discarded
+        activity.finishDate = nil
+        activity.lastUpdatedDate = now
+
+        guard commitContext(now: now) else {
+            // Restore the live workout so the user can retry after storage recovers.
+            activity.status = previousStatus
+            activity.finishDate = previousFinishDate
+            activity.lastUpdatedDate = previousUpdatedDate
             return false
         }
+
+        return true
     }
 
     func enqueueTrackPoint(
@@ -170,6 +160,9 @@ final class LocalDatabaseStore: ObservableObject {
     func flushPendingTrackPoints(now: Date = Date()) -> Bool {
         guard !pendingPoints.isEmpty else {
             stopPendingFlushRetry()
+            // Avoid an unnecessary save when there is nothing queued and the
+            // context has no other changes. Discard's tombstone save follows.
+            guard modelContext.hasChanges else { return true }
             return commitContext(now: now)
         }
         let succeeded = commitContext(now: now)
@@ -241,7 +234,9 @@ final class LocalDatabaseStore: ObservableObject {
         let allActivities = try modelContext.fetch(FetchDescriptor<WorkoutActivity>(
             sortBy: [SortDescriptor(\.startDate, order: .reverse)]
         ))
-        let records = allActivities.map { StrideBackupActivity(activity: $0) }
+        let records = allActivities
+            .filter { $0.status != .discarded }
+            .map { StrideBackupActivity(activity: $0) }
         let currentSettings = try modelContext.fetch(FetchDescriptor<AppSettings>()).first
         let backup = StrideBackup(
             version: 1,
