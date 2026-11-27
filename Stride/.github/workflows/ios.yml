@@ -1,0 +1,64 @@
+
+name: Stride iOS Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test and build Stride
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate --spec project.yml
+
+      - name: Run automated tests
+        run: |
+          xcodebuild test \
+            -project Stride.xcodeproj \
+            -scheme Stride \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build for physical iPhone
+        run: |
+          xcodebuild build \
+            -project Stride.xcodeproj \
+            -scheme Stride \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Stride.app Payload/
+          zip -r Stride-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Stride-unsigned-IPA
+          path: Stride-unsigned.ipa
+          retention-days: 7
