@@ -124,6 +124,9 @@ final class LocalDatabaseStore: ObservableObject {
             lastSaveError = nil
             return true
         } catch {
+            // A failed transaction may have staged its deletes in this context.
+            // Roll them back so the active workout and its points remain usable.
+            modelContext.rollback()
             lastSaveError = error.localizedDescription
             return false
         }
