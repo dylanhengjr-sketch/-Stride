@@ -90,13 +90,32 @@ jobs:
               "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096}
           }))
           PY
-          HTTP_CODE=$(curl --silent --show-error --output gemini-response.json --write-out "%{http_code}" \
-            -H "Content-Type: application/json" \
-            -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}" \
-            --data-binary @gemini-request.json)
+          # Retry temporary capacity/rate-limit/server errors. Never switch to a paid model.
+          HTTP_CODE="000"
+          for ATTEMPT in 1 2 3 4 5; do
+            HTTP_CODE=$(curl --silent --show-error --output gemini-response.json --write-out "%{http_code}" \
+              -H "Content-Type: application/json" \
+              -H "x-goog-api-key: ${GEMINI_API_KEY}" \
+              -X POST \
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent" \
+              --data-binary @gemini-request.json) || HTTP_CODE="000"
+
+            if [[ "${HTTP_CODE}" == "200" ]]; then
+              break
+            fi
+
+            if [[ "${HTTP_CODE}" =~ ^(429|500|502|503|504|000)$ ]] && [[ "${ATTEMPT}" -lt 5 ]]; then
+              DELAY=$((2 ** ATTEMPT))
+              if [[ "${DELAY}" -gt 30 ]]; then DELAY=30; fi
+              echo "Gemini temporarily unavailable (HTTP ${HTTP_CODE}); retry ${ATTEMPT}/5 in ${DELAY}s."
+              sleep "${DELAY}"
+              continue
+            fi
+            break
+          done
+
           if [[ "${HTTP_CODE}" != "200" ]]; then
-            echo "Gemini request failed with HTTP ${HTTP_CODE}. No paid model or provider fallback will be attempted."
+            echo "Gemini request failed after retries with HTTP ${HTTP_CODE}. No paid model or provider fallback was attempted."
             jq -r '.error.message // "No error details returned."' gemini-response.json || true
             exit 1
           fi
@@ -127,7 +146,7 @@ jobs:
               report = "Gemini review did not produce a report. Check the workflow logs for the API error, missing secret, or free-tier quota limit."
           body = (
               "## Gemini independent review\n\n"
-              f"**Commit:** \\x60{os.environ['COMMIT_SHA']}\\x60  \n"
+              f"**Commit:** `{os.environ['COMMIT_SHA']}`  \n"
               f"**Workflow job status:** {os.environ['JOB_STATUS']}\n\n"
               + report
               + "\n\n---\n_This report was posted by GitHub Actions. Gemini has no repository credentials and cannot modify source files._"
