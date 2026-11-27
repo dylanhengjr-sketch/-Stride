@@ -72,6 +72,15 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .onChange(of: settings.distanceUnitKilometers) { _, _ in persistSettings() }
+            .onChange(of: settings.userWeightKg) { _, _ in persistSettings() }
+            .onChange(of: settings.autoPauseEnabled) { _, _ in persistSettings() }
+            .onChange(of: settings.autoPauseSpeedThresholdMPS) { _, _ in persistSettings() }
+            .onChange(of: settings.maxHorizontalAccuracyMeters) { _, _ in persistSettings() }
+            .onChange(of: settings.useBarometerWhenAvailable) { _, _ in persistSettings() }
+            .onChange(of: settings.appearanceModeRaw) { _, _ in persistSettings() }
+            .onChange(of: settings.weeklyGoalMeters) { _, _ in persistSettings() }
+            .onChange(of: settings.monthlyGoalMeters) { _, _ in persistSettings() }            .navigationTitle("Settings")
             .fileImporter(
                 isPresented: $showingImporter,
                 allowedContentTypes: [.json, .xml, UTType(filenameExtension: "gpx") ?? .xml],
