@@ -13,13 +13,17 @@ final class LocalDatabaseStore: ObservableObject {
     private let deleteHandler: (ModelContext, WorkoutActivity) throws -> Void
     private var pendingPoints: [TrackPoint] = []
     private var lastFlushDate: Date?
+    private var pendingFlushRetryTimer: Timer?
+    private let pendingFlushRetryInterval: TimeInterval
 
     init(
         modelContext: ModelContext,
         saveHandler: ((ModelContext) throws -> Void)? = nil,
-        deleteHandler: ((ModelContext, WorkoutActivity) throws -> Void)? = nil
+        deleteHandler: ((ModelContext, WorkoutActivity) throws -> Void)? = nil,
+        pendingFlushRetryInterval: TimeInterval = AppConfig.pointFlushRetryIntervalSeconds
     ) {
         self.modelContext = modelContext
+        self.pendingFlushRetryInterval = max(0.05, pendingFlushRetryInterval)
         if let saveHandler {
             self.saveHandler = saveHandler
         } else {
@@ -150,6 +154,7 @@ final class LocalDatabaseStore: ObservableObject {
     @discardableResult
     func flushPendingTrackPoints(now: Date = Date()) -> Bool {
         guard !pendingPoints.isEmpty else {
+            stopPendingFlushRetry()
             return commitContext(now: now)
         }
         let succeeded = commitContext(now: now)
@@ -157,8 +162,40 @@ final class LocalDatabaseStore: ObservableObject {
             pendingPoints.removeAll()
             pendingPointCount = 0
             lastFlushDate = now
+            stopPendingFlushRetry()
+        } else {
+            schedulePendingFlushRetry()
         }
         return succeeded
+    }
+
+    private func schedulePendingFlushRetry() {
+        guard pendingFlushRetryTimer == nil, !pendingPoints.isEmpty else { return }
+        pendingFlushRetryTimer = Timer.scheduledTimer(
+            withTimeInterval: pendingFlushRetryInterval,
+            repeats: true
+        ) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                guard !self.pendingPoints.isEmpty else {
+                    self.stopPendingFlushRetry()
+                    return
+                }
+                _ = self.flushPendingTrackPoints(now: Date())
+            }
+        }
+    }
+
+    private func stopPendingFlushRetry() {
+        pendingFlushRetryTimer?.invalidate()
+        pendingFlushRetryTimer = nil
     }
 
     @discardableResult
@@ -237,6 +274,7 @@ final class LocalDatabaseStore: ObservableObject {
         try modelContext.save()
         pendingPoints.removeAll()
         pendingPointCount = 0
+        stopPendingFlushRetry()
         lastFlushDate = Date()
         lastSaveError = nil
     }
