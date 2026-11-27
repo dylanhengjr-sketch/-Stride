@@ -102,31 +102,16 @@ final class LocalDatabaseStore: ObservableObject {
             return false
         }
 
-        // Use a disposable context for the delete. A failed save then leaves the
-        // main context and its live workout model untouched.
-        let deletionContext = ModelContext(modelContext.container)
-        let activityID = activity.id
-        let descriptor = FetchDescriptor<WorkoutActivity>(
-            predicate: #Predicate { $0.id == activityID }
-        )
-
-        do {
-            guard let persistedActivity = try deletionContext.fetch(descriptor).first else {
-                return true
-            }
-
-            deletionContext.delete(persistedActivity)
-            guard commitContext(now: now, context: deletionContext) else {
-                return false
-            }
-
-            // All main-context changes were flushed before deletion; reset it so
-            // later fetches cannot return a stale, already-deleted activity.
-            return true
-        } catch {
-            lastSaveError = error.localizedDescription
+        // Delete in the owning context. A second context can invalidate the
+        // live workout's SwiftData objects even when its save subsequently fails.
+        modelContext.delete(activity)
+        guard commitContext(now: now) else {
+            // The point flush above committed all pending workout changes, so
+            // rolling back here only restores the attempted deletion.
+            modelContext.rollback()
             return false
         }
+        return true
     }
 
     func enqueueTrackPoint(
