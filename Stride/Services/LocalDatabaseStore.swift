@@ -102,8 +102,13 @@ final class LocalDatabaseStore: ObservableObject {
         return commitContext(now: now)
     }
 
+    /// Persists settings edits immediately because the app uses a manually-created context.
     @discardableResult
-    func deleteActivity(_ activity: WorkoutActivity, now: Date = Date()) -> Bool {
+    func saveSettings(now: Date = Date()) -> Bool {
+        commitContext(now: now)
+    }
+
+
         // Persist queued route points before beginning the deletion transaction.
         guard flushPendingTrackPoints(now: now) else {
             return false
