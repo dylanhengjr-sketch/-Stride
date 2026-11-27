@@ -106,9 +106,10 @@ final class LocalDatabaseStore: ObservableObject {
         // live workout's SwiftData objects even when its save subsequently fails.
         modelContext.delete(activity)
         guard commitContext(now: now) else {
-            // The point flush above committed all pending workout changes, so
-            // rolling back here only restores the attempted deletion.
-            modelContext.rollback()
+            // The save handler failed before the deletion was persisted.
+            // Reinsert the same model rather than rolling back the entire
+            // context, which can invalidate SwiftData relationship snapshots.
+            modelContext.insert(activity)
             return false
         }
         return true
