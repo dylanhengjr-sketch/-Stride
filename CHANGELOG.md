@@ -9,6 +9,7 @@
 - Workout deletion uses a disposable SwiftData context so a failed delete cannot mutate the active workout context. Tests verify that the saved workout and route points survive a staged failure and can be deleted on retry.
 - Unit-test controllers disable the wall-clock UI ticker so tests that use simulated historical timestamps remain deterministic.
 - Discard-failure tests stage a delete in the disposable context and verify the live workout is still present from a fresh context before retrying.
+- GitHub Actions targets the fixed iPhone 16 simulator directly and bounds the XCTest step to 20 minutes.
 - Removed the Gemini review workflow. The repository's only active workflow is the iOS test/build workflow.
 
 ## Final build
