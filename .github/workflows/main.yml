@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -39,7 +43,6 @@ jobs:
           xcrun simctl list devices available
 
       - name: Run automated tests
-        continue-on-error: true
         run: |
           DEVICE_ID=$(xcrun simctl list devices available | grep -m 1 -E 'iPhone.*\([A-F0-9-]{36}\)' | sed -E 's/.*\(([A-F0-9-]{36})\).*/\1/')
           if [ -z "$DEVICE_ID" ]; then
