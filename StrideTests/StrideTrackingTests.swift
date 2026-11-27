@@ -1150,12 +1150,23 @@ final class StrideTrackingTests: XCTestCase {
             "Queued points should remain persisted when the delete fails"
         )
 
+        let verificationContext = ModelContext(container)
+        let persistedAfterFailure = try XCTUnwrap(
+            try verificationContext.fetch(FetchDescriptor<WorkoutActivity>())
+                .first { $0.id == activityID }
+        )
+        XCTAssertEqual(persistedAfterFailure.trackPoints.count, 1)
+
         shouldFailDelete = false
         controller.discardWorkout(now: t0.addingTimeInterval(2))
 
         XCTAssertEqual(controller.state, .idle)
         XCTAssertEqual(controller.statusBanner, "Workout discarded")
-        XCTAssertFalse(store.fetchAllActivities().contains { $0.id == activityID })
+        let verificationAfterRetry = ModelContext(container)
+        XCTAssertFalse(
+            try verificationAfterRetry.fetch(FetchDescriptor<WorkoutActivity>())
+                .contains { $0.id == activityID }
+        )
     }
 
     func testFinishWorkoutRetainsSessionWhenPersistenceFailsAndCanRetry() {
