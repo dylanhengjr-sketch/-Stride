@@ -12,7 +12,7 @@ struct StatisticsView: View {
             let totalMovingTime = completed.reduce(0) { $0 + ($1.hasUnavailableMovingMetrics ? 0 : $1.movingTimeSeconds) }
             let excludedMovingTimeCount = completed.filter(\.hasUnavailableMovingMetrics).count
             let totalElevGain = completed.reduce(0) { $0 + $1.elevationGainMeters }
-            let totalCalories = completed.reduce(0) { $0 + $1.estimatedCalories }
+            let totalCalories = completed.filter { !$0.hasUnavailableMovingMetrics }.reduce(0) { $0 + $1.estimatedCalories }
             let now = Date()
             let calendar = Calendar.current
             let weekInterval = calendar.dateInterval(of: .weekOfYear, for: now)
@@ -46,7 +46,7 @@ struct StatisticsView: View {
                     Text("Totals")
                 } footer: {
                     if excludedMovingTimeCount > 0 {
-                        Text("Moving time excludes \(excludedMovingTimeCount) workout(s) without available moving-time data (for example, imported GPX tracks).")
+                        Text("Moving time, pace, speed and calories exclude \(excludedMovingTimeCount) workout(s) without measured moving-time data (for example, imported GPX tracks).")
                     }
                 }
 
