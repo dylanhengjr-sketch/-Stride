@@ -850,11 +850,13 @@ final class StrideTrackingTests: XCTestCase {
         let post16 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819854), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(16))
         let post17 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819881), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(17))
         let post18 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819908), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(18))
+        let post19 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.819935), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(19))
         controller.handleIncomingLocation(post16, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(16))
         controller.handleIncomingLocation(post17, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(17))
         controller.handleIncomingLocation(post18, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(18))
+        controller.handleIncomingLocation(post19, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(19))
 
-        _ = store.flushPendingTrackPoints(now: t0.addingTimeInterval(18))
+        _ = store.flushPendingTrackPoints(now: t0.addingTimeInterval(19))
         let activity = store.fetchInProgressActivity()
         let firstAcceptedAfterResume = activity?.trackPoints
             .filter(\.isAccepted)
