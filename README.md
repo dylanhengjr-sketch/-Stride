@@ -15,6 +15,13 @@ Stride is a native iOS 17+ SwiftUI fitness tracker using Core Location, MapKit, 
 
 All data remains local to the device. No authentication, cloud database, advertising, analytics, or subscriptions are included.
 
+## Persistence safeguards
+
+- Settings are explicitly saved when changed because Stride uses a manually created SwiftData context.
+- Failed queued track-point saves are retried periodically while the app process is active, as well as when subsequent tracking events request a flush.
+- Workout deletion runs in a separate SwiftData context. If the deletion operation fails, that context is discarded so the active workout context is not mutated by a failed delete.
+- Unit tests cover settings reloading through a fresh context, timed track-point retry, discard metric reset, and failed deletion followed by retry.
+
 ## Project structure
 
 ```text
