@@ -32,7 +32,7 @@ final class StrideTrackingTests: XCTestCase {
         container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
 
-        store = LocalDatabaseStore(modelContext: context) { [weak self] in
+        store = LocalDatabaseStore(modelContext: context) { [weak self] contextToSave in
             self?.saveAttemptCount += 1
             if self?.shouldFailSave == true {
                 throw SimulatedPersistenceError.diskWriteFailed
@@ -41,8 +41,8 @@ final class StrideTrackingTests: XCTestCase {
                self?.saveAttemptCount == failingAttempt {
                 throw SimulatedPersistenceError.diskWriteFailed
             }
-            if context.hasChanges {
-                try context.save()
+            if contextToSave.hasChanges {
+                try contextToSave.save()
             }
         }
 

@@ -9,7 +9,7 @@ final class LocalDatabaseStore: ObservableObject {
     @Published private(set) var pendingPointCount: Int = 0
 
     private let modelContext: ModelContext
-    private let saveHandler: () throws -> Void
+    private let saveHandler: (ModelContext) throws -> Void
     private var pendingPoints: [TrackPoint] = []
     private var lastFlushDate: Date?
 
@@ -21,9 +21,9 @@ final class LocalDatabaseStore: ObservableObject {
         if let saveHandler {
             self.saveHandler = saveHandler
         } else {
-            self.saveHandler = {
-                if modelContext.hasChanges {
-                    try modelContext.save()
+            self.saveHandler = { context in
+                if context.hasChanges {
+                    try context.save()
                 }
             }
         }
@@ -97,18 +97,38 @@ final class LocalDatabaseStore: ObservableObject {
 
     @discardableResult
     func deleteActivity(_ activity: WorkoutActivity, now: Date = Date()) -> Bool {
-        // Save queued points first so rollback only needs to undo the deletion.
+        // Save queued points first so the deletion is isolated from workout updates.
         guard flushPendingTrackPoints(now: now) else {
             return false
         }
 
-        modelContext.delete(activity)
-        guard commitContext(now: now) else {
-            modelContext.rollback()
+        // Use a disposable context for the delete. A failed save then leaves the
+        // main context and its live workout model untouched.
+        let deletionContext = ModelContext(modelContext.container)
+        let activityID = activity.id
+        let descriptor = FetchDescriptor<WorkoutActivity>(
+            predicate: #Predicate { $0.id == activityID }
+        )
+
+        do {
+            guard let persistedActivity = try deletionContext.fetch(descriptor).first else {
+                modelContext.reset()
+                return true
+            }
+
+            deletionContext.delete(persistedActivity)
+            guard commitContext(now: now, context: deletionContext) else {
+                return false
+            }
+
+            // All main-context changes were flushed before deletion; reset it so
+            // later fetches cannot return a stale, already-deleted activity.
+            modelContext.reset()
+            return true
+        } catch {
+            lastSaveError = error.localizedDescription
             return false
         }
-
-        return true
     }
 
     func enqueueTrackPoint(
@@ -389,9 +409,9 @@ final class LocalDatabaseStore: ObservableObject {
     }
 
     @discardableResult
-    private func commitContext(now: Date) -> Bool {
+    private func commitContext(now: Date, context: ModelContext? = nil) -> Bool {
         do {
-            try saveHandler()
+            try saveHandler(context ?? modelContext)
             lastSaveError = nil
             return true
         } catch {
