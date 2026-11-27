@@ -180,7 +180,6 @@ final class GPSFilterEngine {
             min(12.0, max(location.horizontalAccuracy, referenceForStep.horizontalAccuracy) * 0.5)
         )
         let validReportedSpeed: Double? = location.speed >= 0 ? location.speed : nil
-        let reportedSpeed = validReportedSpeed ?? stepSpeed
         let hasValidInitialSpeed = (validReportedSpeed ?? 0) >= 0.55
         let hasValidConfirmedSpeed = (validReportedSpeed ?? 0) >= 0.65
 
