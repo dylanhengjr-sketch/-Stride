@@ -11,8 +11,7 @@ private enum SimulatedPersistenceError: Error {
 final class StrideTrackingTests: XCTestCase {
     private var container: ModelContainer!
     private var shouldFailSave = false
-    private var saveAttemptCount = 0
-    private var failingSaveAttempt: Int?
+    private var shouldFailDelete = false
     private var store: LocalDatabaseStore!
     private var settings: AppSettings!
     private var locationService: LocationManagerService!
@@ -20,8 +19,7 @@ final class StrideTrackingTests: XCTestCase {
 
     override func setUp() async throws {
         shouldFailSave = false
-        saveAttemptCount = 0
-        failingSaveAttempt = nil
+        shouldFailDelete = false
         let schema = Schema([
             WorkoutActivity.self,
             TrackPoint.self,
@@ -32,19 +30,25 @@ final class StrideTrackingTests: XCTestCase {
         container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
 
-        store = LocalDatabaseStore(modelContext: context) { [weak self] contextToSave in
-            self?.saveAttemptCount += 1
-            if self?.shouldFailSave == true {
-                throw SimulatedPersistenceError.diskWriteFailed
+        store = LocalDatabaseStore(
+            modelContext: context,
+            saveHandler: { [weak self] contextToSave in
+                if self?.shouldFailSave == true {
+                    throw SimulatedPersistenceError.diskWriteFailed
+                }
+                if contextToSave.hasChanges {
+                    try contextToSave.save()
+                }
+            },
+            deleteHandler: { [weak self] contextToDelete, activity in
+                guard self?.shouldFailDelete != true else {
+                    throw SimulatedPersistenceError.diskWriteFailed
+                }
+                try contextToDelete.transaction {
+                    contextToDelete.delete(activity)
+                }
             }
-            if let failingAttempt = self?.failingSaveAttempt,
-               self?.saveAttemptCount == failingAttempt {
-                throw SimulatedPersistenceError.diskWriteFailed
-            }
-            if contextToSave.hasChanges {
-                try contextToSave.save()
-            }
-        }
+        )
 
         settings = store.fetchOrCreateSettings()
         settings.autoPauseEnabled = true
@@ -1077,9 +1081,9 @@ final class StrideTrackingTests: XCTestCase {
         )
 
         let activityID = try XCTUnwrap(store.fetchInProgressActivity()?.id)
-        // Deleting flushes queued points first, then commits the deletion.
-        // Fail only the second save to exercise rollback of the delete itself.
-        failingSaveAttempt = saveAttemptCount + 2
+        // Simulate a deletion transaction failure before it commits.
+        // The persisted workout and its route points must remain available.
+        shouldFailDelete = true
 
         controller.discardWorkout(now: t0.addingTimeInterval(1))
 
@@ -1093,7 +1097,7 @@ final class StrideTrackingTests: XCTestCase {
             "Queued points should remain persisted when the delete fails"
         )
 
-        failingSaveAttempt = nil
+        shouldFailDelete = false
         controller.discardWorkout(now: t0.addingTimeInterval(2))
 
         XCTAssertEqual(controller.state, .idle)
