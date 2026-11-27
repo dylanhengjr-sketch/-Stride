@@ -574,12 +574,15 @@ final class WorkoutSessionController: ObservableObject {
             if settings.autoPauseEnabled && filterEngine.movementState == .confirmedStationary,
                let lastStationary = lastConfirmedStationaryDate {
                 let windowEnd = lastStationary.addingTimeInterval(AppConfig.stationarySignalMaxAgeSeconds)
-                let freshStationaryDt = overlapDuration(
-                    intervalStart: prevClock,
-                    intervalEnd: effectiveNow,
-                    windowStart: lastStationary,
-                    windowEnd: windowEnd
-                )
+                let clockGap = effectiveNow.timeIntervalSince(prevClock)
+                let freshStationaryDt = clockGap <= AppConfig.stationarySignalMaxAgeSeconds
+                    ? overlapDuration(
+                        intervalStart: prevClock,
+                        intervalEnd: effectiveNow,
+                        windowStart: lastStationary,
+                        windowEnd: windowEnd
+                    )
+                    : 0
                 stationaryDurationSeconds += freshStationaryDt
                 if stationaryDurationSeconds >= AppConfig.defaultAutoPauseGracePeriod {
                     // Use the internal transition: calling pauseWorkout here would
