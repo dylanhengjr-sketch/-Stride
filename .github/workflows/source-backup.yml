@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Create source archive
         run: |
-          git archive --format=zip --prefix=Stride/ HEAD > Stride-source-backup.zip
+          git archive --format=zip --prefix=Stride/ eeb15415f082c0b873c25179c45a236ea296132d > Stride-source-backup.zip
           test -s Stride-source-backup.zip
       - name: Upload source archive
         uses: actions/upload-artifact@v4
