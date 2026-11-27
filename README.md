@@ -19,7 +19,7 @@ All data remains local to the device. No authentication, cloud database, adverti
 
 - Settings are explicitly saved when changed because Stride uses a manually created SwiftData context.
 - Failed queued track-point saves are retried periodically while the app process is active, as well as when subsequent tracking events request a flush.
-- Workout deletion runs in a separate SwiftData context. If the deletion operation fails, that context is discarded so the active workout context is not mutated by a failed delete.
+- Discarding a workout marks it with the existing `.discarded` status instead of cascading a physical delete through its SwiftData route-point graph. A failed save restores the original status so the user can retry; discarded workouts are hidden from history/statistics and excluded from JSON backups.
 - Unit tests cover settings reloading through a fresh context, timed track-point retry, discard metric reset, and failed deletion followed by retry.
 
 ## Project structure
