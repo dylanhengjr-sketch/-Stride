@@ -637,6 +637,11 @@ private final class GPXImportParser: NSObject, XMLParserDelegate {
     private var currentTime: Date?
     private var startsNewSegment = true
     private let isoFormatter = ISO8601DateFormatter()
+    private let fractionalISOFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
     static func parse(_ data: Data) throws -> (name: String, points: [GPXImportPoint]) {
         let parserDelegate = GPXImportParser()
@@ -670,11 +675,7 @@ private final class GPXImportParser: NSObject, XMLParserDelegate {
         case "ele":
             if let elevation = Double(value) { currentElevation = elevation; hasElevation = true }
         case "time":
-            currentTime = isoFormatter.date(from: value)
-            if currentTime == nil {
-                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                currentTime = isoFormatter.date(from: value)
-            }
+            currentTime = isoFormatter.date(from: value) ?? fractionalISOFormatter.date(from: value)
         case "trkpt", "rtept":
             if let latitude = currentLatitude, let longitude = currentLongitude,
                abs(latitude) <= 90, abs(longitude) <= 180 {
