@@ -1,0 +1,26 @@
+name: Stride Source Backup
+
+on:
+  push:
+    branches:
+      - 'backup/**'
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact backup commit
+        uses: actions/checkout@v4
+      - name: Create source archive
+        run: |
+          git archive --format=zip --prefix=Stride/ HEAD > Stride-source-backup.zip
+          test -s Stride-source-backup.zip
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Stride-source-backup-before-fixes
+          path: Stride-source-backup.zip
+          retention-days: 30
