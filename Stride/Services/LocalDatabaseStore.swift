@@ -108,7 +108,8 @@ final class LocalDatabaseStore: ObservableObject {
         commitContext(now: now)
     }
 
-
+    @discardableResult
+    func deleteActivity(_ activity: WorkoutActivity, now: Date = Date()) -> Bool {
         // Persist queued route points before beginning the deletion transaction.
         guard flushPendingTrackPoints(now: now) else {
             return false
