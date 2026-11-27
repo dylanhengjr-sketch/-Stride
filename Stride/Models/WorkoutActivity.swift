@@ -37,14 +37,12 @@ final class WorkoutActivity {
         set { statusRaw = newValue.rawValue }
     }
 
-    /// True when moving-time metrics were never measured (for example, imported
-    /// GPX tracks, which cannot reliably distinguish pauses). A genuine zero from a
-    /// recorded workout has no distance or elapsed time to contradict it.
+    /// True when a route has distance but no measured moving time or speed.
+    /// This also covers untimed GPX imports, where elapsed time is unavailable.
     var hasUnavailableMovingMetrics: Bool {
         movingTimeSeconds <= 0
             && averageSpeedMPS <= 0
             && totalDistanceMeters > 0
-            && elapsedTimeSeconds > 0
     }
 
     var elevationSource: ElevationSource {
