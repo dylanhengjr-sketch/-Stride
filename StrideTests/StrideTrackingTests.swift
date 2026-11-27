@@ -1446,4 +1446,24 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertEqual(restoredSettings.userWeightKg, 82, accuracy: 0.001)
     }
 
+    func testSettingsChangesArePersistedForFreshContext() throws {
+        settings.distanceUnitKilometers = false
+        settings.userWeightKg = 83
+        settings.autoPauseEnabled = false
+        settings.appearanceModeRaw = "dark"
+        settings.weeklyGoalMeters = 35_000
+
+        XCTAssertTrue(store.saveSettings())
+
+        let reloadedContext = ModelContext(container)
+        let persistedSettings = try XCTUnwrap(
+            try reloadedContext.fetch(FetchDescriptor<AppSettings>()).first
+        )
+        XCTAssertFalse(persistedSettings.distanceUnitKilometers)
+        XCTAssertEqual(persistedSettings.userWeightKg, 83, accuracy: 0.001)
+        XCTAssertFalse(persistedSettings.autoPauseEnabled)
+        XCTAssertEqual(persistedSettings.appearanceModeRaw, "dark")
+        XCTAssertEqual(persistedSettings.weeklyGoalMeters, 35_000, accuracy: 0.001)
+    }
+
 }
