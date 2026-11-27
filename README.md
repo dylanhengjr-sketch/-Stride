@@ -64,4 +64,6 @@ The build does not require an Apple Developer Program membership or App Store Co
 
 ## Verification status
 
-The project files have been statically inspected and Swift syntax parsing, YAML parsing, and Info.plist parsing have been performed in the available environment. No Xcode/iOS SDK is available here, so this archive has **not** been compiled with Xcode and XCTest has **not** been executed. Run the Codemagic workflow and resolve any actual compiler/test failures before relying on the app.
+The repository's root GitHub Actions workflow (`.github/workflows/main.yml`) runs the XCTest suite on an iPhone simulator and builds the Release app for a generic physical iOS device on pushes to `main` and `fix/**` branches, and on pull requests targeting `main`. The build is unsigned; installing it on a physical iPhone still requires signing with an Apple account or a paid distribution certificate.
+
+A passing CI run verifies the covered tests and build configuration. It does not prove the app is free of defects, and real-device GPS, background recording, barometer behavior, and installation should still be checked on an iPhone.
