@@ -215,25 +215,20 @@ final class GPSFilterEngine {
             }
 
             let routeAnchor = lastAcceptedRouteLocation ?? anchor
-            let qualifiesAsRoutePoint: Bool
-            if currentMovementState == .confirmedMoving && location.timestamp > routeAnchor.timestamp {
-                let distanceFromRouteAnchor = location.distance(from: routeAnchor)
-                let dtFromRouteAnchor = max(0.05, location.timestamp.timeIntervalSince(routeAnchor.timestamp))
-                let speedFromRouteAnchor = distanceFromRouteAnchor / dtFromRouteAnchor
-                qualifiesAsRoutePoint = distanceFromRouteAnchor >= config.minMovementThresholdMeters &&
-                    speedFromRouteAnchor <= config.maxPlausibleSpeedMPS
-            } else {
-                qualifiesAsRoutePoint = false
-            }
+            let dtFromRouteAnchor = location.timestamp.timeIntervalSince(routeAnchor.timestamp)
+            let distanceFromRouteAnchor = location.distance(from: routeAnchor)
+            let speedFromRouteAnchor = dtFromRouteAnchor > 0
+                ? distanceFromRouteAnchor / dtFromRouteAnchor
+                : 0
+            let qualifiesAsRoutePoint =
+                currentMovementState == .confirmedMoving &&
+                dtFromRouteAnchor > 0 &&
+                distanceFromRouteAnchor >= config.minMovementThresholdMeters &&
+                speedFromRouteAnchor <= config.maxPlausibleSpeedMPS
 
             if qualifiesAsRoutePoint {
-                let distanceFromRouteAnchor = location.distance(from: routeAnchor)
-                let dtFromRouteAnchor = max(0.05, location.timestamp.timeIntervalSince(routeAnchor.timestamp))
-                let speedFromRouteAnchor = distanceFromRouteAnchor / dtFromRouteAnchor
-                let effectiveSpeed = min(
-                    max(speedFromRouteAnchor, impliedSpeedFromAnchor, reportedSpeed > 0 ? reportedSpeed : stepSpeed),
-                    config.maxPlausibleSpeedMPS
-                )
+                // Keep speed consistent with the distance and elapsed time used for this route segment.
+                let effectiveSpeed = min(speedFromRouteAnchor, config.maxPlausibleSpeedMPS)
                 lastAcceptedRouteLocation = location
                 anchorLocation = location
                 lastCandidateLocation = nil
@@ -247,9 +242,8 @@ final class GPSFilterEngine {
                 anchorLocation = location
                 lastCandidateLocation = location
                 if currentMovementState == .confirmedMoving {
-                    let positiveReportedSpeed = location.speed > 0 ? location.speed : 0
                     let candidateSpeed = min(
-                        max(positiveReportedSpeed, stepSpeed, impliedSpeedFromAnchor, 0.5),
+                        max(speedFromRouteAnchor, 0.5),
                         config.maxPlausibleSpeedMPS
                     )
                     return .accept(
