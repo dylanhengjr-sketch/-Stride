@@ -367,7 +367,6 @@ private struct StrideBackupSettings: Codable {
     let maxHorizontalAccuracyMeters: Double
     let useBarometerWhenAvailable: Bool
     let distanceUnitKilometers: Bool
-    let voiceAnnouncementsEnabled: Bool
     let appearanceModeRaw: String
     let weeklyGoalMeters: Double
     let monthlyGoalMeters: Double
@@ -379,7 +378,6 @@ private struct StrideBackupSettings: Codable {
         maxHorizontalAccuracyMeters = settings.maxHorizontalAccuracyMeters
         useBarometerWhenAvailable = settings.useBarometerWhenAvailable
         distanceUnitKilometers = settings.distanceUnitKilometers
-        voiceAnnouncementsEnabled = settings.voiceAnnouncementsEnabled
         appearanceModeRaw = settings.appearanceModeRaw
         weeklyGoalMeters = settings.weeklyGoalMeters
         monthlyGoalMeters = settings.monthlyGoalMeters
@@ -393,7 +391,6 @@ private struct StrideBackupSettings: Codable {
             maxHorizontalAccuracyMeters: maxHorizontalAccuracyMeters,
             useBarometerWhenAvailable: useBarometerWhenAvailable,
             distanceUnitKilometers: distanceUnitKilometers,
-            voiceAnnouncementsEnabled: voiceAnnouncementsEnabled,
             appearanceModeRaw: appearanceModeRaw,
             weeklyGoalMeters: weeklyGoalMeters,
             monthlyGoalMeters: monthlyGoalMeters
@@ -407,7 +404,6 @@ private struct StrideBackupSettings: Codable {
         settings.maxHorizontalAccuracyMeters = maxHorizontalAccuracyMeters
         settings.useBarometerWhenAvailable = useBarometerWhenAvailable
         settings.distanceUnitKilometers = distanceUnitKilometers
-        settings.voiceAnnouncementsEnabled = voiceAnnouncementsEnabled
         settings.appearanceModeRaw = appearanceModeRaw
         settings.weeklyGoalMeters = weeklyGoalMeters
         settings.monthlyGoalMeters = monthlyGoalMeters

@@ -2,6 +2,8 @@
 
 ## Final build
 
+- Removed spoken split announcements, their Settings preference, and the audio background mode. Automatic split calculation and persisted split history remain.
+
 - Finishing a workout now reports persistence failures: the session stays paused with a retry banner instead of reporting success. `finishDate` uses the clamped clock value.
 - Pause, resume and lifecycle (background/inactive) saves now surface a status banner when persistence fails, instead of failing silently.
 - `LocalDatabaseStore.updateActivity` returns a `Bool` (`@discardableResult`).
@@ -24,7 +26,7 @@
 - Corrected Swift language mode to `5.0` in the XcodeGen specification, xcconfig, and checked-in Xcode project.
 - Removed the development-signing configuration from Codemagic and hardened simulator discovery and unsigned IPA packaging.
 - Corrected the route-speed expectation in the moving-time regression test.
-- Implemented persisted kilometre/mile splits and optional spoken split announcements.
+- Implemented persisted kilometre/mile splits.
 - Added GPX import/export and JSON backup/restore, including workout points, splits, and app settings.
 - Added weekly/monthly distance goals, progress indicators, activity-distance chart, and system/light/dark appearance selection.
 - Added average speed to the live workout metrics and supplied a 1024x1024 app icon placeholder.

@@ -1,7 +1,6 @@
 import Foundation
 import Combine
 import CoreLocation
-import AVFoundation
 
 enum SessionState: Equatable {
     case idle
@@ -47,7 +46,6 @@ final class WorkoutSessionController: ObservableObject {
     private let store: LocalDatabaseStore
     private let settings: AppSettings
     private let filterEngine = GPSFilterEngine()
-    private let speechSynthesizer = AVSpeechSynthesizer()
 
     private var activeActivity: WorkoutActivity?
     private var uiTicker: Timer?
@@ -799,7 +797,6 @@ final class WorkoutSessionController: ObservableObject {
                 activity: activity
             )
             store.addSplit(split, to: activity, now: now)
-            announceSplit(index: completedSplitCount, duration: splitDuration, distanceMeters: splitDistance)
 
             remainingDistance -= distanceNeeded
             remainingDuration *= (1 - fractionOfCurrentSegment)
@@ -809,25 +806,6 @@ final class WorkoutSessionController: ObservableObject {
 
         splitProgressMeters += remainingDistance
         splitProgressSeconds += remainingDuration
-    }
-
-    private func announceSplit(index: Int, duration: TimeInterval, distanceMeters: Double) {
-        guard settings.voiceAnnouncementsEnabled else { return }
-        let isKilometreSplit = abs(distanceMeters - 1_000.0) < 0.01
-        let unitName = isKilometreSplit ? "kilometre" : "mile"
-        let pacePerUnit = duration / (distanceMeters / (isKilometreSplit ? 1_000.0 : 1_609.344))
-        let totalSeconds = max(0, Int(pacePerUnit.rounded()))
-        let paceText = String(format: "%d minutes %d seconds", totalSeconds / 60, totalSeconds % 60)
-        let utterance = AVSpeechUtterance(string: "\(index) \(unitName) split. Average pace \(paceText) per \(unitName).")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try audioSession.setActive(true)
-        } catch {
-            statusBanner = "Voice announcement unavailable: \(error.localizedDescription)"
-        }
-        speechSynthesizer.speak(utterance)
     }
 
     private func normaliseElevation(

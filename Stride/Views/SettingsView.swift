@@ -38,8 +38,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Announcements & Appearance") {
-                    Toggle("Voice Split Announcements", isOn: $settings.voiceAnnouncementsEnabled)
+                Section("Appearance") {
                     Picker("Appearance", selection: $settings.appearanceModeRaw) {
                         Text("System").tag("system")
                         Text("Light").tag("light")

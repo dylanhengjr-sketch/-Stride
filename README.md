@@ -1,6 +1,6 @@
 # Stride
 
-Stride is a native iOS 17+ SwiftUI fitness tracker using Core Location, MapKit, Core Motion, SwiftData, and AVFoundation.
+Stride is a native iOS 17+ SwiftUI fitness tracker using Core Location, MapKit, Core Motion and SwiftData.
 
 ## Included functionality
 
@@ -9,7 +9,7 @@ Stride is a native iOS 17+ SwiftUI fitness tracker using Core Location, MapKit, 
 - Background location updates using `UIBackgroundModes=location`, `allowsBackgroundLocationUpdates`, and `CLBackgroundActivitySession` on iOS 17+.
 - Manual pause stops location and barometer updates; automatic pause retains lower-accuracy GPS recovery tracking.
 - Distance, elapsed time, moving time, current/average pace and speed, elevation, and estimated calories.
-- Automatic kilometre or mile splits, optional spoken split announcements, and persisted split history.
+- Automatic kilometre or mile splits and persisted split history.
 - Activity history, route maps, statistics, weekly/monthly distance goals, and system/light/dark appearance.
 - Local SwiftData persistence, GPX import/export, and JSON activity backup/restore.
 
@@ -49,7 +49,7 @@ Stride/
 
 ## Background location configuration
 
-`Stride/Info.plist` includes the `location` and `audio` background modes and the location usage descriptions. The app requests When In Use permission when a workout is started in the foreground. During an active workout it starts standard location updates, enables background updates, and retains a `CLBackgroundActivitySession` (iOS 17+). This supports normal background/locked-screen recording; it does not guarantee operation after the user force-quits the app or if iOS terminates the process.
+`Stride/Info.plist` includes the `location` background mode and the location usage descriptions. The app requests When In Use permission when a workout is started in the foreground. During an active workout it starts standard location updates, enables background updates, and retains a `CLBackgroundActivitySession` (iOS 17+). This supports normal background/locked-screen recording; it does not guarantee operation after the user force-quits the app or if iOS terminates the process.
 
 ## Codemagic unsigned build
 

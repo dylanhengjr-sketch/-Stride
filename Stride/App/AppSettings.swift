@@ -10,7 +10,6 @@ final class AppSettings {
     var maxHorizontalAccuracyMeters: Double
     var useBarometerWhenAvailable: Bool
     var distanceUnitKilometers: Bool
-    var voiceAnnouncementsEnabled: Bool
     var appearanceModeRaw: String
     var weeklyGoalMeters: Double
     var monthlyGoalMeters: Double
@@ -23,7 +22,6 @@ final class AppSettings {
         maxHorizontalAccuracyMeters: Double = 25.0,
         useBarometerWhenAvailable: Bool = true,
         distanceUnitKilometers: Bool = true,
-        voiceAnnouncementsEnabled: Bool = false,
         appearanceModeRaw: String = "system",
         weeklyGoalMeters: Double = 20_000,
         monthlyGoalMeters: Double = 80_000
@@ -35,7 +33,6 @@ final class AppSettings {
         self.maxHorizontalAccuracyMeters = maxHorizontalAccuracyMeters
         self.useBarometerWhenAvailable = useBarometerWhenAvailable
         self.distanceUnitKilometers = distanceUnitKilometers
-        self.voiceAnnouncementsEnabled = voiceAnnouncementsEnabled
         self.appearanceModeRaw = appearanceModeRaw
         self.weeklyGoalMeters = weeklyGoalMeters
         self.monthlyGoalMeters = monthlyGoalMeters

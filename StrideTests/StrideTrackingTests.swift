@@ -1241,22 +1241,31 @@ final class StrideTrackingTests: XCTestCase {
         activity.finishDate = t0.addingTimeInterval(60)
         activity.totalDistanceMeters = 250
         settings.userWeightKg = 82
-        settings.voiceAnnouncementsEnabled = true
         store.updateActivity(activity, flushPoints: true, now: t0.addingTimeInterval(60))
 
         let backup = try store.makeJSONBackup()
+        let backupObject = try XCTUnwrap(JSONSerialization.jsonObject(with: backup) as? [String: Any])
+        let exportedSettings = try XCTUnwrap(backupObject["settings"] as? [String: Any])
+        XCTAssertFalse(exportedSettings.keys.contains("voiceAnnouncementsEnabled"))
+
+        // Older Stride backups contain this retired preference. Import must ignore it.
+        var legacyBackupObject = backupObject
+        var legacySettings = exportedSettings
+        legacySettings["voiceAnnouncementsEnabled"] = true
+        legacyBackupObject["settings"] = legacySettings
+        let legacyBackup = try JSONSerialization.data(withJSONObject: legacyBackupObject)
+
         let destinationSchema = Schema([WorkoutActivity.self, TrackPoint.self, ActivitySplit.self, AppSettings.self])
         let destinationConfiguration = ModelConfiguration(schema: destinationSchema, isStoredInMemoryOnly: true)
         let destinationContainer = try ModelContainer(for: destinationSchema, configurations: [destinationConfiguration])
         let destinationStore = LocalDatabaseStore(modelContext: ModelContext(destinationContainer))
-        try destinationStore.importJSONBackup(backup)
+        try destinationStore.importJSONBackup(legacyBackup)
 
         XCTAssertEqual(destinationStore.fetchAllActivities().count, 1)
         XCTAssertEqual(destinationStore.fetchAllActivities().first?.title, "Backup Test")
         XCTAssertEqual(destinationStore.fetchAllActivities().first?.totalDistanceMeters ?? 0, 250, accuracy: 0.001)
         let restoredSettings = destinationStore.fetchOrCreateSettings()
         XCTAssertEqual(restoredSettings.userWeightKg, 82, accuracy: 0.001)
-        XCTAssertTrue(restoredSettings.voiceAnnouncementsEnabled)
     }
 
 }
