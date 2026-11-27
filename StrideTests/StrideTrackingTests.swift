@@ -11,7 +11,6 @@ private enum SimulatedPersistenceError: Error {
 final class StrideTrackingTests: XCTestCase {
     private var container: ModelContainer!
     private var shouldFailSave = false
-    private var shouldFailDelete = false
     private var store: LocalDatabaseStore!
     private var settings: AppSettings!
     private var locationService: LocationManagerService!
@@ -19,7 +18,6 @@ final class StrideTrackingTests: XCTestCase {
 
     override func setUp() async throws {
         shouldFailSave = false
-        shouldFailDelete = false
         let schema = Schema([
             WorkoutActivity.self,
             TrackPoint.self,
@@ -40,15 +38,6 @@ final class StrideTrackingTests: XCTestCase {
                     try contextToSave.save()
                 }
             },
-            deleteHandler: { [weak self] contextToDelete, activity in
-                try contextToDelete.transaction {
-                    contextToDelete.delete(activity)
-                    if self?.shouldFailDelete == true {
-                        // Simulate the transaction failing after the delete is staged.
-                        throw SimulatedPersistenceError.diskWriteFailed
-                    }
-                }
-            }
         )
 
         settings = store.fetchOrCreateSettings()
@@ -1114,7 +1103,7 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertEqual(controller.rejectedPointCount, 0)
     }
 
-    func testDiscardWorkoutRetainsSessionAndCanRetryWhenDeleteSaveFails() throws {
+    func testDiscardWorkoutRetainsSessionAndCanRetryWhenDiscardSaveFails() throws {
         let t0 = Date(timeIntervalSince1970: 1_700_000_640)
         controller.beginWorkoutSession(now: t0)
 
@@ -1135,20 +1124,21 @@ final class StrideTrackingTests: XCTestCase {
         )
 
         let activityID = try XCTUnwrap(store.fetchInProgressActivity()?.id)
-        // Simulate a transaction failure after deletion has been staged.
-        // The persisted workout and its route points must remain available.
-        shouldFailDelete = true
+        // Commit the route point first so the injected failure happens on the
+        // discarded-status save itself, not on the preceding point flush.
+        XCTAssertTrue(store.flushPendingTrackPoints(now: t0.addingTimeInterval(0.5)))
+        XCTAssertEqual(store.pendingPointCount, 0)
 
+        shouldFailSave = true
         controller.discardWorkout(now: t0.addingTimeInterval(1))
 
         XCTAssertEqual(controller.state, .recording)
         XCTAssertTrue(controller.statusBanner?.contains("could not be discarded") == true)
-        XCTAssertEqual(store.pendingPointCount, 0)
         XCTAssertEqual(store.fetchInProgressActivity()?.id, activityID)
         XCTAssertEqual(
             store.fetchInProgressActivity()?.trackPoints.count,
             1,
-            "Queued points should remain persisted when the delete fails"
+            "The workout and its route points must remain available when discard cannot be saved"
         )
 
         let verificationContext = ModelContext(container)
@@ -1156,18 +1146,28 @@ final class StrideTrackingTests: XCTestCase {
             try verificationContext.fetch(FetchDescriptor<WorkoutActivity>())
                 .first { $0.id == activityID }
         )
+        XCTAssertEqual(persistedAfterFailure.status, .recording)
         XCTAssertEqual(persistedAfterFailure.trackPoints.count, 1)
 
-        shouldFailDelete = false
+        shouldFailSave = false
         controller.discardWorkout(now: t0.addingTimeInterval(2))
 
         XCTAssertEqual(controller.state, .idle)
         XCTAssertEqual(controller.statusBanner, "Workout discarded")
-        XCTAssertFalse(store.fetchAllActivities().contains { $0.id == activityID })
+        XCTAssertEqual(store.fetchAllActivities().first { $0.id == activityID }?.status, .discarded)
+        XCTAssertNil(store.fetchInProgressActivity())
+        XCTAssertFalse(store.fetchCompletedActivities().contains { $0.id == activityID })
+
         let verificationAfterRetry = ModelContext(container)
-        XCTAssertFalse(
+        let discardedAfterRetry = try XCTUnwrap(
             try verificationAfterRetry.fetch(FetchDescriptor<WorkoutActivity>())
-                .contains { $0.id == activityID }
+                .first { $0.id == activityID }
+        )
+        XCTAssertEqual(discardedAfterRetry.status, .discarded)
+        XCTAssertEqual(
+            discardedAfterRetry.trackPoints.count,
+            1,
+            "Soft-discard preserves route data without invalidating its SwiftData objects"
         )
     }
 
