@@ -1339,6 +1339,7 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(imported.startDate, beforeImport.addingTimeInterval(-1))
         XCTAssertLessThanOrEqual(imported.startDate, afterImport.addingTimeInterval(1))
         XCTAssertEqual(imported.elapsedTimeSeconds, 0)
+        XCTAssertTrue(imported.hasUnavailableMovingMetrics)
 
         let timestamps = imported.trackPoints
             .sorted { $0.timestamp < $1.timestamp }
