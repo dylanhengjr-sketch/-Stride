@@ -85,6 +85,10 @@ struct ElevationTracker: Sendable {
             }
         }
 
-        return (gainMeters, lossMeters)
+        let provisionalDelta = (candidateExtremum ?? referenceAltitude ?? 0) - (referenceAltitude ?? candidateExtremum ?? 0)
+        return (
+            gainMeters + max(0, provisionalDelta),
+            lossMeters + max(0, -provisionalDelta)
+        )
     }
 }
