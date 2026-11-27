@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Check out exact backup commit
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Create source archive
         run: |
           git archive --format=zip --prefix=Stride/ eeb15415f082c0b873c25179c45a236ea296132d > Stride-source-backup.zip
