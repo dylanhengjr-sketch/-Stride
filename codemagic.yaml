@@ -1,0 +1,66 @@
+workflows:
+  ios-stride-build-test-ipa:
+    name: Stride iOS Build, XCTest & Unsigned IPA
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODEGEN_VERSION: "2.38.0"
+    scripts:
+      - name: Install XcodeGen if missing
+        script: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen generate --spec project.yml
+      - name: Build and run XCTest suite on iPhone 16 Pro Max simulator
+        script: |
+          set -euo pipefail
+          DEVICE_LIST=$(xcrun simctl list devices available)
+          SIM_UDID=$(printf '%s\n' "$DEVICE_LIST" | grep -m 1 "iPhone 16 Pro Max" | grep -Eio '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' || true)
+          if [ -z "$SIM_UDID" ]; then
+            SIM_UDID=$(printf '%s\n' "$DEVICE_LIST" | grep -m 1 "iPhone" | grep -Eio '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' || true)
+          fi
+          if [ -z "$SIM_UDID" ]; then
+            echo "No available iPhone simulator was found"
+            exit 1
+          fi
+          xcodebuild test \
+            -project Stride.xcodeproj \
+            -scheme Stride \
+            -destination "platform=iOS Simulator,id=${SIM_UDID}" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+      - name: Archive and package unsigned IPA
+        script: |
+          set -euo pipefail
+          ARCHIVE_PATH="$CM_BUILD_DIR/build/Stride.xcarchive"
+          IPA_DIR="$CM_BUILD_DIR/build/ipa"
+          mkdir -p "$IPA_DIR"
+          xcodebuild archive \
+            -project Stride.xcodeproj \
+            -scheme Stride \
+            -configuration Release \
+            -archivePath "$ARCHIVE_PATH" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+          APP_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -maxdepth 1 -name "*.app" -print -quit)
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "Archived Stride.app was not found"
+            exit 1
+          fi
+          mkdir -p "$IPA_DIR/Payload"
+          cp -R "$APP_PATH" "$IPA_DIR/Payload/"
+          rm -rf "$IPA_DIR/Payload/Stride.app/_CodeSignature"
+          rm -f "$IPA_DIR/Payload/Stride.app/embedded.mobileprovision"
+          (cd "$IPA_DIR" && /usr/bin/ditto -c -k --sequesterRsrc --keepParent Payload "$IPA_DIR/Stride-unsigned.ipa")
+    artifacts:
+      - build/ipa/*.ipa
+      - build/*.xcarchive
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
