@@ -8,6 +8,7 @@ on:
       - 'Stride/**/*.swift'
       - 'StrideTests/**/*.swift'
       - 'project.yml'
+      - '.github/workflows/gemini-review.yml'
   pull_request:
     branches:
       - main
@@ -15,6 +16,7 @@ on:
       - 'Stride/**/*.swift'
       - 'StrideTests/**/*.swift'
       - 'project.yml'
+      - '.github/workflows/gemini-review.yml'
   workflow_dispatch:
 
 permissions:
