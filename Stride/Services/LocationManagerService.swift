@@ -7,6 +7,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     var onAuthorizationChanged: ((CLAuthorizationStatus) -> Void)?
 
     private let locationManager = CLLocationManager()
+    private let authorizationStatusOverride: CLAuthorizationStatus?
     private let altimeter = CMAltimeter()
     private var backgroundActivitySession: CLBackgroundActivitySession?
 
@@ -17,7 +18,19 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     private(set) var lastErrorMessage: String?
 
     override init() {
+        authorizationStatusOverride = nil
         super.init()
+        configureLocationManager()
+    }
+
+    /// Allows deterministic authorization in unit tests without changing device permissions.
+    init(authorizationStatusOverride: CLAuthorizationStatus) {
+        self.authorizationStatusOverride = authorizationStatusOverride
+        super.init()
+        configureLocationManager()
+    }
+
+    private func configureLocationManager() {
         locationManager.delegate = self
         locationManager.activityType = .fitness
         locationManager.distanceFilter = kCLDistanceFilterNone
@@ -25,7 +38,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     }
 
     var authorizationStatus: CLAuthorizationStatus {
-        locationManager.authorizationStatus
+        authorizationStatusOverride ?? locationManager.authorizationStatus
     }
 
     var isAuthorizedForWorkout: Bool {
