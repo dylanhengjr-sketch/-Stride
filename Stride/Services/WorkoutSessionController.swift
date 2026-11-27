@@ -681,8 +681,7 @@ final class WorkoutSessionController: ObservableObject {
 
         let config = GPSFilterConfig.for(
             activityType: selectedActivityType,
-            maxAccuracy: settings.maxHorizontalAccuracyMeters,
-            movingConfirmationSamples: 2
+            maxAccuracy: settings.maxHorizontalAccuracyMeters
         )
 
         let decision = filterEngine.evaluate(location: location, config: config, now: now)

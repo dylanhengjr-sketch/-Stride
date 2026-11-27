@@ -7,7 +7,6 @@ Stride is a native iOS 17+ SwiftUI fitness tracker using Core Location, MapKit, 
 - Running, walking, cycling, and hiking workout modes.
 - Core Location route recording with GPS accuracy, timestamp, and movement filtering.
 - Background location updates using `UIBackgroundModes=location`, `allowsBackgroundLocationUpdates`, and `CLBackgroundActivitySession` on iOS 17+.
-- `CLServiceSession(authorization: .whenInUse)` on iOS 18+ while an active workout requires location access.
 - Manual pause stops location and barometer updates; automatic pause retains lower-accuracy GPS recovery tracking.
 - Distance, elapsed time, moving time, current/average pace and speed, elevation, and estimated calories.
 - Automatic kilometre or mile splits, optional spoken split announcements, and persisted split history.
@@ -50,7 +49,7 @@ Stride/
 
 ## Background location configuration
 
-`Stride/Info.plist` includes the `location` and `audio` background modes and the location usage descriptions. The app requests When In Use permission when a workout is started in the foreground. During an active workout it starts standard location updates, enables background updates, and retains a `CLBackgroundActivitySession` (iOS 17+). On iOS 18+, it also holds a When In Use `CLServiceSession`. These APIs support normal background/locked-screen recording; they do not guarantee operation after the user force-quits the app or if iOS terminates the process.
+`Stride/Info.plist` includes the `location` and `audio` background modes and the location usage descriptions. The app requests When In Use permission when a workout is started in the foreground. During an active workout it starts standard location updates, enables background updates, and retains a `CLBackgroundActivitySession` (iOS 17+). This supports normal background/locked-screen recording; it does not guarantee operation after the user force-quits the app or if iOS terminates the process.
 
 ## Codemagic unsigned build
 

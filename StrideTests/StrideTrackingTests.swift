@@ -459,7 +459,9 @@ final class StrideTrackingTests: XCTestCase {
 
         XCTAssertEqual(controller.state, .paused(isAutomatic: true))
         XCTAssertEqual(controller.elapsedTimeSeconds, 24.0, accuracy: 0.01)
-        XCTAssertEqual(controller.movingTimeSeconds, movingAtT8, accuracy: 0.01)
+        // The interval up to the first stationary GPS reading is still moving time.
+        // Stationary confirmation and the auto-pause grace period add no more.
+        XCTAssertEqual(controller.movingTimeSeconds, 2.0, accuracy: 0.01)
     }
 
     func testMovingTimeAfterConfirmationIncludesIntervalBeforeAutoPause() {
@@ -497,11 +499,13 @@ final class StrideTrackingTests: XCTestCase {
         let m0 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.81980), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0)
         let m2 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.81988), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(2))
         let m4 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.81998), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(4))
+        let m6 = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 1.35210, longitude: 103.82008), altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 3.0, timestamp: t0.addingTimeInterval(6))
         controller.handleIncomingLocation(m0, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0)
         controller.handleIncomingLocation(m2, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(2))
         controller.handleIncomingLocation(m4, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(4))
+        controller.handleIncomingLocation(m6, barometricRelativeAltitude: 0, isBarometerActive: true, now: t0.addingTimeInterval(6))
 
-        controller.advanceClocks(to: t0.addingTimeInterval(10))
+        controller.advanceClocks(to: t0.addingTimeInterval(12))
         XCTAssertEqual(controller.movingTimeSeconds, 6.0, accuracy: 0.01)
 
         controller.advanceClocks(to: t0.addingTimeInterval(190))
