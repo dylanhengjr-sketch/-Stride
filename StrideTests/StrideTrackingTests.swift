@@ -59,7 +59,8 @@ final class StrideTrackingTests: XCTestCase {
         controller = WorkoutSessionController(
             locationService: locationService,
             store: store,
-            settings: settings
+            settings: settings,
+            usesUITicker: false
         )
     }
 
