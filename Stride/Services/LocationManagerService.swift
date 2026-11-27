@@ -2,6 +2,53 @@ import Foundation
 import CoreLocation
 import CoreMotion
 
+struct BarometricAltitudeAccumulator: Sendable {
+    private(set) var accumulatedAltitudeMeters: Double?
+    private(set) var latestSampleAltitudeMeters: Double?
+
+    private var sessionStartAltitudeMeters: Double = 0
+    private var isSessionActive = false
+
+    mutating func restore(_ altitudeMeters: Double?) {
+        accumulatedAltitudeMeters = altitudeMeters.flatMap { $0.isFinite ? $0 : nil }
+        latestSampleAltitudeMeters = nil
+        sessionStartAltitudeMeters = accumulatedAltitudeMeters ?? 0
+        isSessionActive = false
+    }
+
+    mutating func beginSession() {
+        guard !isSessionActive else { return }
+        sessionStartAltitudeMeters = accumulatedAltitudeMeters ?? 0
+        latestSampleAltitudeMeters = nil
+        isSessionActive = true
+    }
+
+    @discardableResult
+    mutating func record(relativeAltitudeMeters: Double) -> Double? {
+        guard isSessionActive, relativeAltitudeMeters.isFinite else { return nil }
+        let normalisedAltitude = sessionStartAltitudeMeters + relativeAltitudeMeters
+        guard normalisedAltitude.isFinite else { return nil }
+
+        accumulatedAltitudeMeters = normalisedAltitude
+        latestSampleAltitudeMeters = normalisedAltitude
+        return normalisedAltitude
+    }
+
+    mutating func endSession() {
+        guard isSessionActive else {
+            latestSampleAltitudeMeters = nil
+            return
+        }
+
+        if let latestSampleAltitudeMeters {
+            accumulatedAltitudeMeters = latestSampleAltitudeMeters
+        }
+        sessionStartAltitudeMeters = accumulatedAltitudeMeters ?? 0
+        latestSampleAltitudeMeters = nil
+        isSessionActive = false
+    }
+}
+
 final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     var onLocationReceived: ((CLLocation, Double?, Bool) -> Void)?
     var onAuthorizationChanged: ((CLAuthorizationStatus) -> Void)?
@@ -13,8 +60,8 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
 
     private var isTrackingActive: Bool = false
     private var isBarometerRunning: Bool = false
-    private var latestBarometricRelativeAltitude: Double?
-    private var barometricOffsetMeters: Double?
+    private var barometricAltitudeAccumulator = BarometricAltitudeAccumulator()
+    private var activeBarometerSessionID: UUID?
     private(set) var lastErrorMessage: String?
 
     override init() {
@@ -55,8 +102,7 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     }
 
     func restoreBarometricOffset(meters: Double?) {
-        barometricOffsetMeters = meters
-        latestBarometricRelativeAltitude = meters
+        barometricAltitudeAccumulator.restore(meters)
     }
 
     func startActiveTracking(for activityType: ActivityType, useBarometer: Bool) {
@@ -157,30 +203,36 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
 
     private func startBarometerIfAvailable() {
         guard !isBarometerRunning, CMAltimeter.isRelativeAltitudeAvailable() else { return }
+
+        barometricAltitudeAccumulator.beginSession()
+        let sessionID = UUID()
+        activeBarometerSessionID = sessionID
         isBarometerRunning = true
 
         altimeter.startRelativeAltitudeUpdates(to: .main) { [weak self] data, error in
-            guard let self else { return }
+            guard let self, self.activeBarometerSessionID == sessionID else { return }
 
             if let error {
                 self.lastErrorMessage = error.localizedDescription
-                self.altimeter.stopRelativeAltitudeUpdates()
+                self.activeBarometerSessionID = nil
                 self.isBarometerRunning = false
-                self.latestBarometricRelativeAltitude = nil
+                self.altimeter.stopRelativeAltitudeUpdates()
+                self.barometricAltitudeAccumulator.endSession()
                 return
             }
 
-            if let relAlt = data?.relativeAltitude.doubleValue {
-                let offset = self.barometricOffsetMeters ?? 0.0
-                self.latestBarometricRelativeAltitude = offset + relAlt
+            if let relativeAltitude = data?.relativeAltitude.doubleValue {
+                _ = self.barometricAltitudeAccumulator.record(relativeAltitudeMeters: relativeAltitude)
             }
         }
     }
 
     private func stopBarometer() {
         guard isBarometerRunning else { return }
-        altimeter.stopRelativeAltitudeUpdates()
+        activeBarometerSessionID = nil
         isBarometerRunning = false
+        altimeter.stopRelativeAltitudeUpdates()
+        barometricAltitudeAccumulator.endSession()
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -190,9 +242,10 @@ final class LocationManagerService: NSObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard isTrackingActive else { return }
         let baroActive = settingsBarometerActive()
+        let barometricAltitude = baroActive ? barometricAltitudeAccumulator.latestSampleAltitudeMeters : nil
 
         for location in locations {
-            onLocationReceived?(location, latestBarometricRelativeAltitude, baroActive)
+            onLocationReceived?(location, barometricAltitude, baroActive)
         }
     }
 

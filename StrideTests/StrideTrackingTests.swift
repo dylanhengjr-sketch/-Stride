@@ -986,6 +986,42 @@ final class StrideTrackingTests: XCTestCase {
         XCTAssertEqual(altitude ?? .nan, 2, accuracy: 0.001)
     }
 
+    func testBarometricAltitudeAccumulatorRemainsContinuousAcrossPauseAndResume() {
+        var accumulator = BarometricAltitudeAccumulator()
+        accumulator.restore(nil)
+
+        accumulator.beginSession()
+        XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 0) ?? .nan, 0, accuracy: 0.001)
+        XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 4.5) ?? .nan, 4.5, accuracy: 0.001)
+        accumulator.endSession()
+
+        XCTAssertNil(accumulator.latestSampleAltitudeMeters)
+        XCTAssertEqual(accumulator.accumulatedAltitudeMeters ?? .nan, 4.5, accuracy: 0.001)
+
+        accumulator.beginSession()
+        XCTAssertNil(accumulator.latestSampleAltitudeMeters)
+        XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 0) ?? .nan, 4.5, accuracy: 0.001)
+        XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 1.5) ?? .nan, 6.0, accuracy: 0.001)
+        accumulator.endSession()
+
+        XCTAssertEqual(accumulator.accumulatedAltitudeMeters ?? .nan, 6.0, accuracy: 0.001)
+    }
+
+    func testBarometricAltitudeAccumulatorRestoresBaselineAndIgnoresInvalidSamples() {
+        var accumulator = BarometricAltitudeAccumulator()
+        accumulator.restore(125.0)
+        accumulator.beginSession()
+
+        XCTAssertNil(accumulator.latestSampleAltitudeMeters)
+        XCTAssertNil(accumulator.record(relativeAltitudeMeters: .infinity))
+        XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 0) ?? .nan, 125.0, accuracy: 0.001)
+
+        accumulator.endSession()
+        accumulator.beginSession()
+        XCTAssertNil(accumulator.latestSampleAltitudeMeters)
+        XCTAssertEqual(accumulator.record(relativeAltitudeMeters: 0) ?? .nan, 125.0, accuracy: 0.001)
+    }
+
     func testFinishWorkoutRetainsSessionWhenPersistenceFailsAndCanRetry() {
         let t0 = Date(timeIntervalSince1970: 1_700_000_650)
         controller.beginWorkoutSession(now: t0)
