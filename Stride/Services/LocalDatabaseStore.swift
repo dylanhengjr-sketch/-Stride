@@ -119,14 +119,26 @@ final class LocalDatabaseStore: ObservableObject {
             return false
         }
 
+        // Perform deletion in a disposable context. If the transaction or store
+        // write fails, discarding this context leaves the live workout object and
+        // its relationship graph untouched.
+        let deletionContext = ModelContext(modelContext.container)
         do {
-            try deleteHandler(modelContext, activity)
+            let activityID = activity.id
+            let descriptor = FetchDescriptor<WorkoutActivity>(
+                predicate: #Predicate { $0.id == activityID }
+            )
+            guard let persistedActivity = try deletionContext.fetch(descriptor).first else {
+                lastSaveError = nil
+                return true
+            }
+
+            try deleteHandler(deletionContext, persistedActivity)
             lastSaveError = nil
             return true
         } catch {
-            // A failed transaction may have staged its deletes in this context.
-            // Roll them back so the active workout and its points remain usable.
-            modelContext.rollback()
+            // Do not roll back a context after a failed SwiftData transaction:
+            // dispose of the isolated context instead.
             lastSaveError = error.localizedDescription
             return false
         }
