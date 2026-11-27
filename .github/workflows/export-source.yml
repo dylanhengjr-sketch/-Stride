@@ -1,0 +1,27 @@
+name: Export Stride source for review
+
+on:
+  push:
+    branches:
+      - export/stride-review-zip
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package reviewed project revision
+        run: git archive --format=zip --prefix=Stride/ HEAD^ -o Stride-project.zip
+      - name: Upload project ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Stride-project-review
+          path: Stride-project.zip
+          if-no-files-found: error
+          retention-days: 7
